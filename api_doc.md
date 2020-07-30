@@ -14,7 +14,8 @@ curl --location --request POST 'https://<YOUR_DOMAIN_NAME>/app' \
 --header 'Content-Type: application/json' \
 --data-raw '{
 	"heroku_app_name":"heroku_app_name",
-	"include_worker":true,
+	"ideal_time": 300,
+	"check_interval": 100,
 	"heroku_api_key":"<your API key>"
 }'
 ```

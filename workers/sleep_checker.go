@@ -2,7 +2,6 @@ package workers
 
 import (
 	"autosleep/models"
-  "autosleep/constants"
 	"context"
 	"fmt"
 	"time"
@@ -26,14 +25,14 @@ func (c *Context) SleepChecker(job *work.Job) error {
 	fmt.Println("SleepChecker: Current time is ",current, "dyno was active at ", app.RecentActivityAt)
 
   diff := current.Sub(app.RecentActivityAt)
-	if diff.Seconds() > constants.IdealTime && app.CurrentStatus == true {
+	if diff.Seconds() > app.IdealTime && app.CurrentStatus == true {
 		formation_list := ScaleDownDynos(app)
 		models.DB.Model(&app).Updates(map[string]interface{}{"CurrentStatus": false, "CurrentConfig": formation_list})
 
   }
-  if diff.Seconds() <= constants.IdealTime && app.CurrentStatus == true {
+  if diff.Seconds() <= app.IdealTime && app.CurrentStatus == true {
   	var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
-  	_, err := enqueuer.EnqueueUniqueIn("sleep_chacker", constants.CheckInterval, work.Q{"app_id": app.HerokuAppName})
+  	_, err := enqueuer.EnqueueUniqueIn("sleep_chacker", app.CheckInterval, work.Q{"app_id": app.HerokuAppName})
   	if err != nil {
   		fmt.Println(err)
   	}

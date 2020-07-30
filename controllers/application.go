@@ -20,13 +20,14 @@ func FindApplications(c *gin.Context) {
 //////////
 type CreateApplicationInput struct {
   HerokuAppName  	string  `json:"heroku_app_name" binding:"required"`
-  IncludeWorker 	bool 	`json:"include_worker"  binding:"required"`
   HerokuApiKey 		string	`json:"heroku_api_key"  binding:"required"`
+  CheckInterval     int64     `json:"check_interval"`
+  IdealTime         float64   `json:"ideal_time"`
 }
 
 func CreateApp(c *gin.Context) {
   // Validate input
-  var input CreateApplicationInput
+  input := CreateApplicationInput{CheckInterval: constants.CheckInterval, IdealTime: constants.IdealTime}
   if err := c.ShouldBindJSON(&input); err != nil {
     c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
     return
@@ -34,10 +35,10 @@ func CreateApp(c *gin.Context) {
   
   cur_config := get_current_config(input.HerokuAppName, input.HerokuApiKey)
   drain_id := add_drain(input.HerokuAppName, input.HerokuApiKey)
-  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: input.HerokuApiKey, IncludeWorker: input.IncludeWorker,DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
+  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: input.HerokuApiKey, CheckInterval: input.CheckInterval, IdealTime: input.IdealTime, DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
   models.DB.Create(&app)
   var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
-  _, err := enqueuer.EnqueueIn("sleep_chacker",constants.CheckInterval,work.Q{"app_id": input.HerokuAppName})
+  _, err := enqueuer.EnqueueIn("sleep_chacker",app.CheckInterval,work.Q{"app_id": input.HerokuAppName})
   if err != nil {
     fmt.Println(err)
   }
@@ -65,7 +66,7 @@ func ProcessDrain(c *gin.Context){
     ScaleUpDynos(app)
     models.DB.Model(&app).Update("CurrentStatus", true)
     var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
-    _, err := enqueuer.EnqueueUniqueIn("sleep_chacker",30,work.Q{"app_id": app.HerokuAppName})
+    _, err := enqueuer.EnqueueUniqueIn("sleep_chacker",app.CheckInterval,work.Q{"app_id": app.HerokuAppName})
     if err != nil {
       fmt.Println(err)
     }
@@ -96,6 +97,6 @@ func DeleteApp(c *gin.Context) {
     return
   }
   remove_drain(app.HerokuAppName, app.HerokuApiKey, app.DrainId)
-  models.DB.Delete(&app)
-  c.JSON(http.StatusOK, gin.H{"data": "The App is deleted softly"})
+  models.DB.Unscoped().Delete(&app)
+  c.JSON(http.StatusOK, gin.H{"data": "The App is deleted"})
 }
