@@ -51,7 +51,7 @@ func ProcessDrain(c *gin.Context){
   buf := make([]byte, 1024)
   num, _ := c.Request.Body.Read(buf)
   reqBody := string(buf[0:num])
-  is_running := strings.Contains(reqBody, "router");
+  is_running := strings.Contains(reqBody, "router") && !strings.Contains(reqBody, "code=H14") && !strings.Contains(reqBody, "well-known");
   if is_running == false {
     c.JSON(http.StatusOK, gin.H{"status": is_running})
     return
