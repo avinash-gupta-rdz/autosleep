@@ -11,14 +11,17 @@ type JSONB  map[string]map[string]string// map[string]interface{}
 type Application struct {
   gorm.Model
   // ID     			uint   `json:"id" gorm:"primary_key"`
-  HerokuAppName  	string `json:"heroku_app_name",sql:"unique_index"`
-  CurrentStatus 	bool `json:"current_status"`
+  HerokuAppName  	  string    `json:"heroku_app_name",sql:"unique_index"`
+  CurrentStatus 	  bool      `json:"current_status"`
   RecentActivityAt  time.Time `json:"recent_activity_at"`
-  HerokuApiKey 		string `json:"heroku_api_key"`
-  DrainId 		string `json:"drain_id"`
-  CurrentConfig    JSONB   `sql:"type:jsonb",json:"current_config"`
-  IdealTime float64   `json:"ideal_time"`
-  CheckInterval int64   `json:"check_interval"`
+  HerokuApiKey 		  string    `json:"heroku_api_key"`
+  DrainId 		      string    `json:"drain_id"`
+  CurrentConfig     JSONB     `json:"current_config",sql:"type:jsonb"`
+  IdealTime         float64   `json:"ideal_time"`
+  CheckInterval     int64     `json:"check_interval"`
+  ManualMode        bool      `json:"manual_mode"`
+  NightMode         bool      `json:"night_mode"`
+
 
 }
 

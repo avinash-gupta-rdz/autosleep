@@ -2,6 +2,7 @@ package workers
 
 import (
 	"autosleep/models"
+  "autosleep/constants"
 	"context"
 	"fmt"
 	"time"
@@ -23,11 +24,19 @@ func (c *Context) SleepChecker(job *work.Job) error {
 	current := time.Now().In(loc)
 
 	fmt.Println("SleepChecker: Current time is ",current, "dyno was active at ", app.RecentActivityAt)
-
   diff := current.Sub(app.RecentActivityAt)
 	if diff.Seconds() > app.IdealTime && app.CurrentStatus == true {
-		formation_list := ScaleDownDynos(app)
-		models.DB.Model(&app).Updates(map[string]interface{}{"CurrentStatus": false, "CurrentConfig": formation_list})
+
+    if app.NightMode && !CheckForNight(){
+      var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
+      _, err := enqueuer.EnqueueUniqueIn("sleep_chacker", app.CheckInterval, work.Q{"app_id": app.HerokuAppName})
+      if err != nil {
+        fmt.Println(err)
+      }
+    }else{
+  		formation_list := ScaleDownDynos(app)
+  		models.DB.Model(&app).Updates(map[string]interface{}{"CurrentStatus": false, "CurrentConfig": formation_list})    
+    }
 
   }
   if diff.Seconds() <= app.IdealTime && app.CurrentStatus == true {
@@ -74,4 +83,19 @@ func ScaleDownDynos(app models.Application)(map[string]map[string]string) {
   }
   service.FormationBatchUpdate(context.TODO(), app.HerokuAppName, opts)
   return formation_map
+}
+
+
+
+func CheckForNight()bool{ 
+  loc, _ := time.LoadLocation("UTC")
+  now := time.Now().In(loc)
+  h,m,d := now.Date()
+  start_time := time.Date(h,m,d, constants.NightModeStart["hour"], constants.NightModeStart["minute"], now.Second(), now.Nanosecond(), time.UTC)
+  end_time := start_time.Add(constants.NightModeHour)
+  if now.After(start_time) && now.Before(end_time) {
+    return true
+  }else{
+    return false
+  }
 }

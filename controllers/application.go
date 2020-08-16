@@ -23,11 +23,13 @@ type CreateApplicationInput struct {
   HerokuApiKey 		string	`json:"heroku_api_key"  binding:"required"`
   CheckInterval     int64     `json:"check_interval"`
   IdealTime         float64   `json:"ideal_time"`
+  ManualMode        bool      `json:"manual_mode"`
+  NightMode         bool      `json:"night_mode"`
 }
 
 func CreateApp(c *gin.Context) {
   // Validate input
-  input := CreateApplicationInput{CheckInterval: constants.CheckInterval, IdealTime: constants.IdealTime}
+  input := CreateApplicationInput{CheckInterval: constants.CheckInterval, IdealTime: constants.IdealTime,ManualMode: false, NightMode: false}
   if err := c.ShouldBindJSON(&input); err != nil {
     c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
     return
@@ -35,7 +37,7 @@ func CreateApp(c *gin.Context) {
   
   cur_config := get_current_config(input.HerokuAppName, input.HerokuApiKey)
   drain_id := add_drain(input.HerokuAppName, input.HerokuApiKey)
-  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: input.HerokuApiKey, CheckInterval: input.CheckInterval, IdealTime: input.IdealTime, DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
+  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: input.HerokuApiKey, CheckInterval: input.CheckInterval, IdealTime: input.IdealTime,NightMode: input.NightMode,ManualMode: input.ManualMode, DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
   models.DB.Create(&app)
   var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
   _, err := enqueuer.EnqueueIn("sleep_chacker",app.CheckInterval,work.Q{"app_id": input.HerokuAppName})
@@ -51,7 +53,8 @@ func ProcessDrain(c *gin.Context){
   buf := make([]byte, 1024)
   num, _ := c.Request.Body.Read(buf)
   reqBody := string(buf[0:num])
-  is_running := strings.Contains(reqBody, "router") && !strings.Contains(reqBody, "code=H14") && !strings.Contains(reqBody, "well-known");
+  is_running := strings.Contains(reqBody, "router") && !strings.Contains(reqBody, "well-known")
+
   if is_running == false {
     c.JSON(http.StatusOK, gin.H{"status": is_running})
     return
@@ -62,7 +65,7 @@ func ProcessDrain(c *gin.Context){
     return
   }
   fmt.Println("app_id ", c.Param("app_id"), " CurrentStatus: ", app.CurrentStatus," is_running: ", is_running)
-  if app.CurrentStatus == false &&  is_running == true {
+  if app.CurrentStatus == false &&  is_running == true && app.ManualMode == false{
     ScaleUpDynos(app)
     models.DB.Model(&app).Update("CurrentStatus", true)
     var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)

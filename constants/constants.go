@@ -1,4 +1,6 @@
 package constants
 
-const CheckInterval = 100
-const IdealTime = 300
+const CheckInterval = 600
+const IdealTime = 1800
+const NightModeHour = 12
+var NightModeStart = map[string]int{"hour":15,"minute":30}

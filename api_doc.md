@@ -1,9 +1,18 @@
 AutoSleep API Documentation
 ----------------------------
 
-`:app_id` is your heroku app name
+`:app_id` is your Heroku app name
 `heroku_api_key` can be retrieved with 
 `heroku authorizations:create`
+`manual_mode` if true then your dynos will not Scaled-up when a request comes (default: false)
+`night_mode` if true than dynos will only Scaled-down in Night i.e., 9 PM IST to Next 12 hours (default: false)
+`check_interval` After what interval scheduler will keep checking for dyno sleep (default: 600  seconds)
+`ideal_time`  Ideal Time duration after which the dynos will scaled-down if not in use(default: 1800 seconds)
+
+
+Note: 
+1) check_interval should be less then ideal_time otherwise ideal_time will be equal to check_interval
+2) ideal_time should not vary small otherwise it can disturb user experience 
 
 see: [heroku authentication](https://devcenter.heroku.com/articles/platform-api-quickstart#authentication) 
 
@@ -16,6 +25,8 @@ curl --location --request POST 'https://<YOUR_DOMAIN_NAME>/app' \
 	"heroku_app_name":"heroku_app_name",
 	"ideal_time": 300,
 	"check_interval": 100,
+	"manual_mode":false,
+	"night_mode",false,
 	"heroku_api_key":"<your API key>"
 }'
 ```
