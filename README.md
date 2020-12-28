@@ -17,6 +17,17 @@ Worker Backgroud Job uses [work](https://github.com/gocraft/work)
 
 [API DOC](https://github.com/avinash-gupta-rdz/autosleep/blob/master/api_doc.md)
 
+## Configurations maintained with ENV
+
+| ENV Variable     | usage |
+|------------------|--------|
+| DATABASE_URL  | Mysql Database URI |
+| REDISCLOUD_URL |Redis URI |
+| PASSPHRASE |used to generate encryption key |
+| SELF_HOST | self-hosted URL used to consume log drains |
+| API_USER |Basic Auth User |
+| API_PASS |Basic Auth Password |
+
 
 ### TODO:
 - Maintain History

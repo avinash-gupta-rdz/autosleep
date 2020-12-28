@@ -24,11 +24,17 @@ func main() {
 
 func handle_routes(){
   router := gin.Default()
-  router.GET("/app", controllers.FindApplications)
-  router.GET("/app/:app_id", controllers.FindApp)
-  router.DELETE("/app/:app_id", controllers.DeleteApp)
+
+  authorized := router.Group("/", gin.BasicAuth(gin.Accounts{
+        os.Getenv("API_USER"): os.Getenv("API_PASS"),
+    }))
+
+
+  authorized.GET("/app", controllers.FindApplications)
+  authorized.GET("/app/:app_id", controllers.FindApp)
+  authorized.DELETE("/app/:app_id", controllers.DeleteApp)
   // router.GET("/apps/:app_id/history", controllers.FindApplications)
-  router.POST("/app",controllers.CreateApp) //DONE
+  authorized.POST("/app",controllers.CreateApp) //DONE
 
   router.POST("/drain/:app_id", controllers.ProcessDrain)
   go router.Run()

@@ -18,7 +18,7 @@ see: [heroku authentication](https://devcenter.heroku.com/articles/platform-api-
 
 ### Add App for autosleep
 
-```
+```sh
 curl --location --request POST 'https://<YOUR_DOMAIN_NAME>/app' \
 --header 'Content-Type: application/json' \
 --data-raw '{
@@ -33,25 +33,25 @@ curl --location --request POST 'https://<YOUR_DOMAIN_NAME>/app' \
 
 ### GET App Details 
 
-```
+```sh
 curl --location --request GET 'https://<YOUR_DOMAIN_NAME>/apps/:app_id'
 ```
 
 ### Remove App from autoscale
 
-```
+```sh
 curl --location --request DELETE 'https://<YOUR_DOMAIN_NAME>/apps/:app_id'
 ```
 
 ### Find All Apps configured for Sleep
 
-```
+```sh
 curl --location --request GET 'https://<YOUR_DOMAIN_NAME>/apps'
 ```
 
 ### Consume Syslog drains
 
-```
+```sh
 curl --location --request POST 'https://<YOUR_DOMAIN_NAME>/drain/:app_id' \
 --header 'Logplex-Msg-Count: 2' \
 --header 'Logplex-Drain-Token: sdsssdsdasd' \
