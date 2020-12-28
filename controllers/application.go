@@ -37,7 +37,7 @@ func CreateApp(c *gin.Context) {
   
   cur_config := get_current_config(input.HerokuAppName, input.HerokuApiKey)
   drain_id := add_drain(input.HerokuAppName, input.HerokuApiKey)
-  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: input.HerokuApiKey, CheckInterval: input.CheckInterval, IdealTime: input.IdealTime,NightMode: input.NightMode,ManualMode: input.ManualMode, DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
+  app := models.Application{HerokuAppName: input.HerokuAppName, HerokuApiKey: models.Encrypt(input.HerokuApiKey), CheckInterval: input.CheckInterval, IdealTime: input.IdealTime,NightMode: input.NightMode,ManualMode: input.ManualMode, DrainId: drain_id, RecentActivityAt: time.Now(),CurrentConfig: cur_config, CurrentStatus: true }
   models.DB.Create(&app)
   var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
   _, err := enqueuer.EnqueueIn("sleep_chacker",app.CheckInterval,work.Q{"app_id": input.HerokuAppName})

@@ -50,7 +50,7 @@ func (c *Context) SleepChecker(job *work.Job) error {
 }
 
 func ScaleDownDynos(app models.Application)(map[string]map[string]string) {
-  heroku.DefaultTransport.BearerToken = app.HerokuApiKey
+  heroku.DefaultTransport.BearerToken = models.Decrypt(app.HerokuApiKey)
   service := heroku.NewService(heroku.DefaultClient)
   var lrange heroku.ListRange
 

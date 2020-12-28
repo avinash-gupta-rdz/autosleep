@@ -23,8 +23,8 @@ func add_drain(app_id string, token string)(string){
 	return drain.ID
 }
 
-func remove_drain(app_id string, token string, drain_id string){
-	heroku.DefaultTransport.BearerToken = token
+func remove_drain(app_id string, token []byte, drain_id string){
+	heroku.DefaultTransport.BearerToken = models.Decrypt(token)
 	service := heroku.NewService(heroku.DefaultClient)
 	_, err := service.LogDrainDelete(context.TODO(), app_id, drain_id)
 	if err != nil {
@@ -58,7 +58,7 @@ func get_current_config(app_id string, token string)(map[string]map[string]strin
 }
 
 func ScaleUpDynos(app models.Application) {
-	heroku.DefaultTransport.BearerToken = app.HerokuApiKey
+	heroku.DefaultTransport.BearerToken = models.Decrypt(app.HerokuApiKey)
 	service := heroku.NewService(heroku.DefaultClient)
 	opts := heroku.FormationBatchUpdateOpts{}
 
