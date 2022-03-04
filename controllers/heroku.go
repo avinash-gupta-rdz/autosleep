@@ -1,20 +1,18 @@
 package controllers
 
 import (
-	heroku "github.com/heroku/heroku-go/v5"
+	"autosleep/constants"
+	"autosleep/models"
 	"context"
 	"fmt"
-	"autosleep/models"
-	"os"
+	heroku "github.com/heroku/heroku-go/v5"
 	"strconv"
 )
 
-
-func add_drain(app_id string, token string)(string){
+func add_drain(app_id string, token string) string {
 	heroku.DefaultTransport.BearerToken = token
 	service := heroku.NewService(heroku.DefaultClient)
-	self_url := os.Getenv("SELF_HOST")
-	url := fmt.Sprintf("%s/drain/%s",self_url,app_id)
+	url := fmt.Sprintf("%s/drain/%s", constants.SelfHost, app_id)
 	drain, err := service.LogDrainCreate(context.TODO(), app_id, heroku.LogDrainCreateOpts{URL: url})
 	if err != nil {
 		fmt.Println(err)
@@ -23,8 +21,8 @@ func add_drain(app_id string, token string)(string){
 	return drain.ID
 }
 
-func remove_drain(app_id string, token []byte, drain_id string){
-	heroku.DefaultTransport.BearerToken = models.Decrypt(token)
+func remove_drain(app_id string, token string, drain_id string) {
+	heroku.DefaultTransport.BearerToken = token
 	service := heroku.NewService(heroku.DefaultClient)
 	_, err := service.LogDrainDelete(context.TODO(), app_id, drain_id)
 	if err != nil {
@@ -33,8 +31,7 @@ func remove_drain(app_id string, token []byte, drain_id string){
 	fmt.Println(app_id, "=>  Removed drain: ", drain_id)
 }
 
-
-func get_current_config(app_id string, token string)(map[string]map[string]string){ //TODO:: unused method
+func get_current_config(app_id string, token string) map[string]map[string]string { //TODO:: unused method
 
 	heroku.DefaultTransport.BearerToken = token
 	service := heroku.NewService(heroku.DefaultClient)
@@ -46,19 +43,19 @@ func get_current_config(app_id string, token string)(map[string]map[string]strin
 	}
 	var formation_map = map[string]map[string]string{}
 
-	  for _, formation := range formation_list {
-	    if formation.Type != "console" && formation.Type != "rake" {
-	      formation_map[formation.Type] = map[string]string{}
-	      formation_map[formation.Type]["Quantity"] = strconv.Itoa(formation.Quantity)
-	      formation_map[formation.Type]["Size"] = formation.Size
-	    }
-	    
-	  }
+	for _, formation := range formation_list {
+		if formation.Type != "console" && formation.Type != "rake" {
+			formation_map[formation.Type] = map[string]string{}
+			formation_map[formation.Type]["Quantity"] = strconv.Itoa(formation.Quantity)
+			formation_map[formation.Type]["Size"] = formation.Size
+		}
+
+	}
 	return formation_map
 }
 
 func ScaleUpDynos(app models.Application) {
-	heroku.DefaultTransport.BearerToken = models.Decrypt(app.HerokuApiKey)
+	heroku.DefaultTransport.BearerToken = app.GetToken()
 	service := heroku.NewService(heroku.DefaultClient)
 	opts := heroku.FormationBatchUpdateOpts{}
 
@@ -74,6 +71,23 @@ func ScaleUpDynos(app models.Application) {
 	}
 
 	batch_result, _ := service.FormationBatchUpdate(context.TODO(), app.HerokuAppName, opts)
-	fmt.Println("batch_result\n",batch_result)
+	fmt.Println("batch_result\n", batch_result)
 
+}
+
+func GetHerokuService(token string) *heroku.Service {
+	heroku.DefaultTransport.BearerToken = token
+	return heroku.NewService(heroku.DefaultClient)
+
+	// client := constants.OauthConfig.Client(context.Background(), token)
+	// return heroku.NewService(client)
+}
+
+func GetAccountInformation(token string) *heroku.Account {
+	srv := GetHerokuService(token)
+	account, err := srv.AccountInfo(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+	}
+	return account
 }

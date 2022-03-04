@@ -50,7 +50,7 @@ curl --location --request DELETE 'https://<YOUR_DOMAIN_NAME>/apps/:app_id'
 ### Find All Apps configured for Sleep
 
 ```sh
-curl --location --request GET 'https://<YOUR_DOMAIN_NAME>/apps'
+curl --location --request GET 'https://<YOUR_DOMAIN_NAME>/app'
 ```
 
 ### Consume Syslog drains

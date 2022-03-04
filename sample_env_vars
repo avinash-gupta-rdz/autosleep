@@ -1,0 +1,11 @@
+export PASSPHRASE=PASSPHRASE
+export HEROKU_OAUTH_ID=dfdaafc0-95ec5cf378e7-46e1-36e8399e-a41e
+export HEROKU_OAUTH_SECRET=dfdaafc0-4be0-82dc-95ec5cf378e7
+export DATABASE_URL="root:pass@tcp(127.0.0.1:3306)/autosleep_dev?charset=utf8&parseTime=True"
+export REDISCLOUD_URL=redis://:password@127.0.0.1
+export API_USER=autosleep
+export API_PASS=autosleep
+export HEROKU_APP_NAME=autosleep
+export SELF_HOST=http://127.0.0.1:8080
+export PORT=8080
+export GIN_MODE=debug
