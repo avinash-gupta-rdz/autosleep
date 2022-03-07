@@ -35,7 +35,7 @@ func (c *Context) SleepChecker(job *work.Job) error {
 			}
 		} else {
 			formation_list := ScaleDownDynos(app)
-			models.DB.Model(&app).Updates(map[string]interface{}{"CurrentStatus": false, "CurrentConfig": formation_list})
+			models.DB.Model(&app).Updates(models.Application{CurrentStatus: false, CurrentConfig: formation_list})
 		}
 
 	}
