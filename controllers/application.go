@@ -86,7 +86,7 @@ func ProcessDrain(c *gin.Context) {
 	fmt.Println("app_id ", c.Param("app_id"), " CurrentStatus: ", app.CurrentStatus, " is_running: ", is_running)
 	if app.CurrentStatus == false && is_running == true && app.ManualMode == false {
 		ScaleUpDynos(app)
-		models.DB.Model(&app).Update("CurrentStatus", true)
+		models.DB.Debug().Model(&app).Update("CurrentStatus", true)
 		var enqueuer = work.NewEnqueuer("auto_ideal", models.REDIS)
 		_, err := enqueuer.EnqueueUniqueIn("sleep_checker", app.CheckInterval, work.Q{"app_id": app.HerokuAppName})
 		if err != nil {
@@ -94,7 +94,7 @@ func ProcessDrain(c *gin.Context) {
 		}
 	}
 	if is_running {
-		models.DB.Model(&app).Update("RecentActivityAt", time.Now())
+		models.DB.Debug().Model(&app).Update("RecentActivityAt", time.Now())
 	}
 	c.JSON(http.StatusOK, gin.H{"status": is_running})
 }
