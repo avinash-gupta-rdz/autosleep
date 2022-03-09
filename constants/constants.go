@@ -23,4 +23,6 @@ var OauthConfig = &oauth2.Config{
 	RedirectURL:  "http://" + SelfHost + "/auth/heroku/callback", // See https://devcenter.heroku.com/articles/dyno-metadata
 }
 
-var StateToken = os.Getenv("HEROKU_APP_NAME")
+var StateToken = os.Getenv("STATE_TOKEN")
+
+var AllowedIps = os.Getenv("WHITELISTED_IPS")

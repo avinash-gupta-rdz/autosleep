@@ -1,7 +1,9 @@
 package main
 
 import (
+	"autosleep/constants"
 	"autosleep/controllers"
+	"autosleep/middleware"
 	"autosleep/models"
 	"autosleep/workers"
 	"fmt"
@@ -22,19 +24,18 @@ func main() {
 func handle_routes() {
 	router := gin.Default()
 
+	router.POST("/drain/:app_id", controllers.ProcessDrain)
+	router.GET("/auth/heroku/callback", controllers.HandleAuthCallback)
+
 	authorized := router.Group("/", gin.BasicAuth(gin.Accounts{
 		os.Getenv("API_USER"): os.Getenv("API_PASS"),
 	}))
-
+	authorized.Use(middleware.IPWhiteList(constants.AllowedIps))
 	authorized.GET("/app", controllers.FindApplications)
 	authorized.POST("/app", controllers.CreateApp)
 	authorized.GET("/app/:app_id", controllers.FindApp)
 	authorized.DELETE("/app/:app_id", controllers.DeleteApp)
-	router.POST("/drain/:app_id", controllers.ProcessDrain)
-	// router.GET("/apps/:app_id/history", controllers.FindApplications)
-
 	authorized.GET("/register", controllers.HandleAuth)
-	router.GET("/auth/heroku/callback", controllers.HandleAuthCallback)
 	go router.Run()
 }
 
