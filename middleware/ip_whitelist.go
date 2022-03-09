@@ -11,20 +11,11 @@ import (
 // DisableLogging set up logging. default is false (logging)
 var DisableLogging bool
 
-// CIDR is a middleware that check given CIDR rules and return 403 Forbidden
+// IPWhiteList is a middleware that check given CIDR rules and return 403 Forbidden
 // when user is not coming from allowed source. CIDRs accepts a list of CIDRs,
 // separated by comma. (e.g. 127.0.0.1/32, ::1/128 )
 func IPWhiteList(CIDRs string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// retreieve user's connection origin from request remote addr
-		// need to split the host because original remoteAddr contains port
-		remoteAddr, _, splitErr := net.SplitHostPort(c.Request.RemoteAddr)
-		log.Printf("[remoteAddr] Request from [" + remoteAddr + "] ")
-		log.Printf("[ClientIP] Request from [" + c.ClientIP() + "] ")
-		if splitErr != nil {
-			c.AbortWithError(500, splitErr)
-			return
-		}
 		// parse it into IP type
 		remoteIP := net.ParseIP(c.ClientIP())
 
@@ -57,7 +48,7 @@ func IPWhiteList(CIDRs string) gin.HandlerFunc {
 		// if no CIDR ranges contains our IP
 		if matchCount == 0 {
 			if DisableLogging == false {
-				log.Printf("[LIMIT] Request from [" + remoteAddr + "] is not allow to access `" + c.Request.RequestURI + "`, only allow from: [" + CIDRs + "]")
+				log.Printf("[LIMIT] Request from [" + c.ClientIP() + "] is not allow to access `" + c.Request.RequestURI + "`, only allow from: [" + CIDRs + "]")
 			}
 
 			c.AbortWithStatus(403)
