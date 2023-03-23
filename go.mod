@@ -4,7 +4,7 @@ module autosleep
 go 1.17
 
 require (
-	github.com/gin-gonic/gin v1.7.0
+	github.com/gin-gonic/gin v1.7.7
 	github.com/gocraft/work v0.5.1
 	github.com/gomodule/redigo v1.8.8
 	github.com/heroku/heroku-go/v5 v5.2.0
