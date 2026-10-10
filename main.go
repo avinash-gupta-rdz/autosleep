@@ -95,6 +95,9 @@ func checkConfig() {
 	if len(missing) > 0 {
 		log.Fatalf("missing required config vars: %s (see README)", strings.Join(missing, ", "))
 	}
+	if _, err := logins(); err != nil {
+		log.Fatal(err)
+	}
 	night, err := schedule.FromEnv()
 	if err != nil {
 		log.Fatal(err)
@@ -118,6 +121,16 @@ func connectEnvAPIKey() {
 		return
 	}
 	log.Printf("Connected Heroku account %s from HEROKU_API_KEY", act.Email)
+}
+
+// logins is the API_USER admin plus any extra USERS.
+func logins() ([]middleware.User, error) {
+	extra, err := middleware.ParseUsers(os.Getenv("USERS"))
+	if err != nil {
+		return nil, err
+	}
+	admin := middleware.User{Name: os.Getenv("API_USER"), Password: os.Getenv("API_PASS"), Role: middleware.RoleAdmin}
+	return append([]middleware.User{admin}, extra...), nil
 }
 
 func port() string {
@@ -169,9 +182,16 @@ func router() *gin.Engine {
 	r.GET("/waking/:app_id", public, controllers.WakingPage)
 
 	// IP allowlist first, so outsiders can't even probe passwords.
-	authorized := r.Group("/", middleware.IPWhiteList(constants.AllowedIps), gin.BasicAuth(gin.Accounts{
-		os.Getenv("API_USER"): os.Getenv("API_PASS"),
-	}), middleware.SameOrigin())
+	users, err := logins()
+	if err != nil {
+		log.Fatal(err)
+	}
+	authorized := r.Group("/", middleware.IPWhiteList(constants.AllowedIps), middleware.BasicAuth(users),
+		middleware.SameOrigin(), middleware.ViewersReadOnly())
+	authorized.GET("/me", func(c *gin.Context) {
+		u := middleware.CurrentUser(c)
+		c.JSON(http.StatusOK, gin.H{"data": gin.H{"name": u.Name, "role": u.Role}})
+	})
 	authorized.GET("/", web.Dashboard)
 	authorized.GET("/metrics", metrics.Handler)
 	authorized.GET("/register", controllers.HandleAuth)

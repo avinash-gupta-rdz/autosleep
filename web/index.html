@@ -196,6 +196,9 @@ details.adv[open] summary { margin-bottom: 4px; }
 .oh-fields { padding: 0 0 10px 28px; }
 .foot { color: var(--faint); font-size: 12.5px; padding-top: 12px; padding-bottom: 40px; display: flex; gap: 16px; flex-wrap: wrap; }
 .foot .btn { height: auto; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: 12.5px; }
+.readonly [data-open-add], .readonly [data-act=wake], .readonly [data-act=sleep], .readonly [data-act=pause],
+.readonly [data-act=resume], .readonly [data-act=settings], .readonly [data-act=remove], .readonly [data-fix], .readonly #test-alert { display: none !important; }
+.who { color: var(--muted); font-size: 12.5px; align-self: center; }
 .cta { text-align: center; padding: 24px 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
 .cta p { color: var(--muted); margin: 0 0 14px; }
 
@@ -262,6 +265,7 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
       <div><h1>AutoSleep</h1><p>Sleep your dynos while nobody is using them</p></div>
     </div>
     <div class="top-actions">
+      <span class="who" id="who"></span>
       <button class="btn" type="button" data-open-add>Connect Heroku</button>
       <button class="btn primary" type="button" data-open-add>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add app</button>
@@ -1255,6 +1259,14 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
   })();
+
+  api('GET', '/me').then(function (d) {
+    var u = d.data || {};
+    if (u.role === 'viewer') {
+      document.body.classList.add('readonly');
+      $('#who').textContent = 'Signed in as ' + u.name + ' (read-only)';
+    }
+  }, function () { /* older server: treat as admin */ });
 
   refresh();
   setInterval(function () { if (!document.hidden) refresh(); }, 30000);

@@ -35,3 +35,25 @@ func TestProbesAndMetrics(t *testing.T) {
 		t.Errorf("/metrics = %d, body missing autosleep metrics", w.Code)
 	}
 }
+
+func TestViewerLogin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_USER", "admin")
+	t.Setenv("API_PASS", "pw")
+	t.Setenv("USERS", "qa:look:viewer")
+	r := router()
+	req := httptest.NewRequest("GET", "/me", nil)
+	req.SetBasicAuth("qa", "look")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"role":"viewer"`) {
+		t.Fatalf("/me as viewer = %d %s", w.Code, w.Body.String())
+	}
+	req = httptest.NewRequest("POST", "/app/x/sleep", nil)
+	req.SetBasicAuth("qa", "look")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("viewer POST = %d, want 403", w.Code)
+	}
+}
