@@ -9,7 +9,7 @@ AutoSleep stores third-party API tokens (Heroku) and controls the scaling of use
 Report privately via one of:
 
 1. **Preferred — GitHub Security Advisories:** open a draft advisory at https://github.com/avinash-gupta-rdz/autosleep/security/advisories/new
-2. Email: `mine2technology@gmail.com` with subject `[autosleep security]`
+2. Email: `atechnodrifter@gmail.com` with subject `[autosleep security]`
 
 Please include a description of the issue and its impact, steps to reproduce (or a proof of concept), the affected version or commit, and any suggested fix.
 
