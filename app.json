@@ -1,0 +1,54 @@
+{
+  "name": "AutoSleep",
+  "description": "Put idle Heroku apps to sleep and wake them on the next request. A self-hosted, open-source alternative to AutoIdle.",
+  "keywords": ["heroku", "dyno", "sleep", "idle", "cost", "autoidle", "go"],
+  "repository": "https://github.com/avinash-gupta-rdz/autosleep",
+  "success_url": "/",
+  "stack": "heroku-24",
+  "buildpacks": [{ "url": "heroku/go" }],
+  "formation": {
+    "web": { "quantity": 1, "size": "basic" }
+  },
+  "addons": [
+    { "plan": "heroku-postgresql:essential-0" },
+    { "plan": "heroku-redis:mini" }
+  ],
+  "env": {
+    "API_USER": {
+      "description": "Username for the AutoSleep dashboard and API (HTTP basic auth).",
+      "value": "admin"
+    },
+    "API_PASS": {
+      "description": "Password for the AutoSleep dashboard and API. Generated for you; see it later with `heroku config:get API_PASS`.",
+      "generator": "secret"
+    },
+    "PASSPHRASE": {
+      "description": "Encrypts stored Heroku tokens. Don't change it after setup, or stored tokens become unreadable.",
+      "generator": "secret"
+    },
+    "HEROKU_OAUTH_ID": {
+      "description": "Optional. OAuth client ID so you can connect your Heroku account with one click (create one at https://dashboard.heroku.com/account/applications with callback URL https://<this-app>.herokuapp.com/auth/heroku/callback). Leave empty to use API keys instead.",
+      "required": false
+    },
+    "HEROKU_OAUTH_SECRET": {
+      "description": "Optional. OAuth client secret matching HEROKU_OAUTH_ID.",
+      "required": false
+    },
+    "WHITELISTED_IPS": {
+      "description": "Optional. Comma-separated CIDRs allowed to use the dashboard/API, e.g. 203.0.113.0/24. Empty allows any IP (basic auth still required).",
+      "required": false
+    },
+    "NIGHT_MODE_TZ": {
+      "description": "Time zone for the night-mode window (IANA name, e.g. Asia/Kolkata, Europe/Berlin).",
+      "value": "UTC"
+    },
+    "NIGHT_MODE_START": {
+      "description": "When the night-mode window starts, HH:MM in NIGHT_MODE_TZ.",
+      "value": "15:30"
+    },
+    "NIGHT_MODE_HOURS": {
+      "description": "How long the night-mode window lasts, in hours.",
+      "value": "12"
+    }
+  }
+}

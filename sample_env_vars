@@ -1,12 +1,19 @@
-export PASSPHRASE=PASSPHRASE
-export HEROKU_OAUTH_ID=dfdaafc0
-export HEROKU_OAUTH_SECRET=dfdaafc0
-export DATABASE_URL="root:pass@tcp(127.0.0.1:3306)/autosleep_dev?charset=utf8&parseTime=True"
-export REDISCLOUD_URL=redis://:password@127.0.0.1
+# Required
 export API_USER=autosleep
 export API_PASS=autosleep
-export STATE_TOKEN=autosleep
-export SELF_HOST=http://127.0.0.1:8080
+export PASSPHRASE=change-me-to-a-long-random-string   # never change after setup
+export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/autosleep_dev?sslmode=disable"
+# or MySQL: export DATABASE_URL="mysql://root:pass@127.0.0.1:3306/autosleep_dev"
+export REDIS_URL=redis://127.0.0.1:6379
 export PORT=8080
+
+# Optional
+export HEROKU_OAUTH_ID=
+export HEROKU_OAUTH_SECRET=
+export SELF_HOST=          # public URL, e.g. https://my-autosleep.herokuapp.com (detected from requests if empty)
+export WHITELISTED_IPS=    # e.g. 203.0.113.0/24 (empty = any IP)
+export AUTO_ENROLL=        # e.g. myapp-pr-*
+export NIGHT_MODE_TZ=UTC
+export NIGHT_MODE_START=15:30
+export NIGHT_MODE_HOURS=12
 export GIN_MODE=debug
-export WHITELISTED_IPS=0.0.0.0/0

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussions
+    url: https://github.com/avinash-gupta-rdz/autosleep/discussions
+    about: For open-ended questions, ideas, or help — use Discussions, not issues.
+  - name: Security vulnerabilities
+    url: https://github.com/avinash-gupta-rdz/autosleep/security/advisories/new
+    about: Report security issues privately. Do not open public issues for vulnerabilities.

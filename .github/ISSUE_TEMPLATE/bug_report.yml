@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a reproducible problem with AutoSleep
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+        If this is a security issue, please do **not** use this form — see [SECURITY.md](../SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: AutoSleep version / commit
+      description: Output of `git rev-parse HEAD`, or the release tag you're running.
+      placeholder: "e.g. v0.1.0, or commit abc1234"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running AutoSleep?
+      options:
+        - Heroku
+        - Docker
+        - go run (local dev)
+        - Other (please describe in "Additional context")
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps a maintainer can follow to reproduce the issue.
+      placeholder: |
+        1. Register an app with `curl ...`
+        2. Wait N minutes
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste relevant log output (redact any secrets or tokens).
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — database (Postgres/MySQL) and Redis versions, Heroku dyno type, network setup, etc.

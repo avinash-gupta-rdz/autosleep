@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>AutoSleep</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b5bd6'/%3E%3Cpath d='M20 8a9 9 0 1 0 4 15.5A8 8 0 0 1 20 8z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f7f7f8; --surface: #ffffff; --surface-2: #f3f3f5; --border: #e4e4e8; --border-strong: #d4d4da;
+  --text: #18181b; --muted: #676772; --faint: #8e8e98;
+  --accent: #5b5bd6; --accent-hover: #4c4cc4; --accent-text: #4a4ac2; --accent-soft: #eeeefc; --on-accent: #ffffff;
+  --green: #17803d; --green-soft: #e6f5eb; --indigo: #4f46e5; --indigo-soft: #ecebff;
+  --grey: #5f5f6b; --grey-soft: #ececef; --danger: #c22a2a; --danger-soft: #fdeded; --danger-hover: #a92323;
+  --shadow: 0 1px 2px rgba(16,16,24,.04), 0 1px 1px rgba(16,16,24,.03);
+  --shadow-lg: 0 20px 50px rgba(16,16,24,.18), 0 2px 6px rgba(16,16,24,.08);
+  --radius: 8px; --focus: 0 0 0 3px rgba(91,91,214,.35);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e11; --surface: #16161a; --surface-2: #1d1d22; --border: #2a2a31; --border-strong: #383840;
+    --text: #ececf1; --muted: #a0a0ab; --faint: #7a7a85;
+    --accent: #5b5bd6; --accent-hover: #6a6ae2; --accent-text: #a9a9ff; --accent-soft: #23234a; --on-accent: #ffffff;
+    --green: #5fd38a; --green-soft: #13291c; --indigo: #a5a2ff; --indigo-soft: #24224a;
+    --grey: #b0b0ba; --grey-soft: #26262c; --danger: #ff7b7b; --danger-soft: #3a1a1c; --danger-hover: #e26464;
+    --shadow: 0 1px 2px rgba(0,0,0,.3); --shadow-lg: 0 20px 50px rgba(0,0,0,.6);
+    --focus: 0 0 0 3px rgba(140,140,255,.45);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Header */
+header.top { border-bottom: 1px solid var(--border); background: var(--surface); }
+header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; padding-bottom: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.brand h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 14px; border-radius: var(--radius); border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 500; cursor: pointer;
+  white-space: nowrap; text-decoration: none; transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--surface-2); text-decoration: none; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn.danger:hover:not(:disabled) { background: var(--danger-hover); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.ghost:hover { background: var(--surface-2); color: var(--text); }
+.btn.ghost.warn:hover { color: var(--danger); }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.btn svg { flex: none; }
+
+/* Summary */
+main { padding: 24px 0 64px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.tile .label { color: var(--muted); font-size: 12.5px; }
+.tile .value { font-size: 24px; font-weight: 600; letter-spacing: -.02em; margin-top: 4px; }
+.tile .sub { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+.tile .split { display: flex; gap: 14px; flex-wrap: wrap; }
+.tile .split span { white-space: nowrap; }
+.note { color: var(--faint); font-size: 12.5px; margin: 10px 2px 0; }
+
+/* Apps */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 32px 0 12px; gap: 12px; }
+.section-head h2 { font-size: 15px; margin: 0; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+table.apps { width: 100%; border-collapse: collapse; }
+.apps th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.apps td { padding: 14px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.apps tr:last-child td { border-bottom: 0; }
+.apps td.right, .apps th.right { text-align: right; }
+.app-name { font-weight: 600; font-size: 14.5px; word-break: break-all; }
+.app-meta { color: var(--faint); font-size: 12.5px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.badge { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; padding: 2px 9px 2px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.awake { background: var(--green-soft); color: var(--green); }
+.pill.asleep { background: var(--indigo-soft); color: var(--indigo); }
+.pill.paused { background: var(--grey-soft); color: var(--grey); }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.when { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.err-line { display: flex; gap: 6px; align-items: flex-start; color: var(--danger); background: var(--danger-soft); font-size: 12.5px; padding: 6px 8px; border-radius: 6px; margin-top: 8px; word-break: break-word; }
+.err-line svg { flex: none; margin-top: 2px; }
+.row-actions { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.banner { padding: 10px 14px; border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); margin-bottom: 12px; font-size: 13px; }
+.loading { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+/* Empty state */
+.empty { padding: 40px 24px; text-align: center; }
+.empty h3 { margin: 12px 0 6px; font-size: 17px; }
+.empty > p { color: var(--muted); margin: 0 auto 24px; max-width: 460px; }
+.steps { list-style: none; padding: 0; margin: 0 auto 28px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 760px; text-align: left; }
+.steps li { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface-2); }
+.steps b { display: block; margin-bottom: 4px; }
+.steps .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.steps span.d { color: var(--muted); font-size: 13px; }
+
+/* Dialogs */
+dialog { border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); }
+dialog.wide { width: min(720px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(10,10,20,.45); }
+.dlg { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
+.dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; }
+.dlg-head h2 { font-size: 16px; margin: 0; word-break: break-all; }
+.dlg-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.dlg-body { padding: 4px 20px 16px; overflow-y: auto; }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 12px 12px; flex-wrap: wrap; }
+.icon-btn { width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; display: grid; place-items: center; flex: none; }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+/* Forms */
+.field { margin-bottom: 14px; }
+.field > label { display: block; font-weight: 500; margin-bottom: 5px; font-size: 13px; }
+.hint { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.hint code, .dlg-body code { background: var(--surface-2); border: 1px solid var(--border); padding: 0 5px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+input[type=text], input[type=password], input[type=number], input[type=search], select {
+  width: 100%; height: 36px; padding: 0 10px; border-radius: var(--radius); border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font: inherit;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.toggle { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); cursor: pointer; }
+.toggle input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.toggle b { display: block; font-weight: 500; }
+.toggle span { color: var(--muted); font-size: 12.5px; }
+details.adv { border: 1px solid var(--border); border-radius: var(--radius); padding: 0 14px; margin-top: 16px; }
+details.adv summary { cursor: pointer; padding: 10px 0; font-weight: 500; }
+details.adv[open] summary { margin-bottom: 4px; }
+.form-err { color: var(--danger); background: var(--danger-soft); padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-top: 12px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
+.tab { flex: 1; height: 32px; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 500; border-radius: 6px; cursor: pointer; }
+.tab[aria-selected=true] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.app-list { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); max-height: 280px; overflow-y: auto; }
+.app-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.app-list li:last-child { border-bottom: 0; }
+.app-list .nm { font-weight: 500; word-break: break-all; }
+.app-list .empty-li { color: var(--muted); justify-content: center; }
+.cta { text-align: center; padding: 24px 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+.cta p { color: var(--muted); margin: 0 0 14px; }
+
+/* History */
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: start; }
+.timeline li:last-child { border-bottom: 0; }
+.ev-icon { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+.ev-icon.slept { background: var(--indigo-soft); color: var(--indigo); }
+.ev-icon.woke { background: var(--green-soft); color: var(--green); }
+.ev-title { font-weight: 500; }
+.ev-sub { color: var(--muted); font-size: 12.5px; }
+.ev-time { text-align: right; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+h3.sub { font-size: 13.5px; margin: 22px 0 8px; }
+.mini-stats { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
+.mini-stats div { font-size: 12.5px; color: var(--muted); }
+.mini-stats b { display: block; font-size: 17px; color: var(--text); }
+table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bd th, .bd td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+.bd th:first-child, .bd td:first-child { text-align: left; }
+.bd th { color: var(--muted); font-weight: 500; }
+
+/* Toasts */
+.toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; max-width: min(380px, calc(100vw - 32px)); }
+.toast { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: var(--radius); padding: 10px 12px; box-shadow: var(--shadow-lg); animation: tin .18s ease-out; word-break: break-word; }
+.toast.error { border-left-color: var(--danger); }
+.toast p { margin: 0; flex: 1; }
+@keyframes tin { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* Narrow screens */
+@media (max-width: 860px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .steps { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .top-actions { width: 100%; }
+  .top-actions .btn { flex: 1; }
+  table.apps thead { display: none; }
+  table.apps, .apps tbody, .apps tr, .apps td { display: block; width: 100%; }
+  .apps tr { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .apps tr:last-child { border-bottom: 0; }
+  .apps td { padding: 0; border: 0; }
+  .apps td + td { margin-top: 10px; }
+  .apps td[data-label]:not(.c-actions)::before { content: attr(data-label); display: block; color: var(--faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+  .apps td.c-stat { display: inline-block; width: 50%; vertical-align: top; text-align: left; }
+  .apps td.c-status { margin-top: 10px; }
+  .row-actions { justify-content: flex-start; }
+  .apps td.c-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .row2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 420px) {
+  .tile .value { font-size: 20px; }
+  .tiles { gap: 8px; }
+  .tile { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M15 3a9 9 0 1 0 6 15.7A8 8 0 0 1 15 3z"/></svg></div>
+      <div><h1>AutoSleep</h1><p>Sleep your dynos while nobody is using them</p></div>
+    </div>
+    <div class="top-actions">
+      <a class="btn" href="/register">Connect Heroku account</a>
+      <button class="btn primary" type="button" data-open-add>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add app</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section aria-labelledby="sum-h">
+    <h2 id="sum-h" class="sr-only">Summary</h2>
+    <div class="tiles" id="tiles"></div>
+    <p class="note" id="sum-note"></p>
+  </section>
+
+  <section aria-labelledby="apps-h">
+    <div class="section-head">
+      <h2 id="apps-h">Apps</h2>
+      <span class="muted" id="updated" style="font-size:12.5px"></span>
+    </div>
+    <div id="banner"></div>
+    <div class="panel" id="apps"><div class="loading">Loading your apps…</div></div>
+  </section>
+</main>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+<!-- Add app -->
+<dialog id="dlg-add" aria-labelledby="add-h">
+  <div class="dlg">
+    <div class="dlg-head">
+      <div><h2 id="add-h">Add an app</h2><p>AutoSleep will watch its traffic and sleep it when idle.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <div class="tabs" role="tablist" aria-label="How to add the app">
+        <button class="tab" role="tab" id="tab-acct" aria-controls="pane-acct" aria-selected="true" type="button">From my Heroku account</button>
+        <button class="tab" role="tab" id="tab-key" aria-controls="pane-key" aria-selected="false" tabindex="-1" type="button">Use an API key</button>
+      </div>
+      <div role="tabpanel" id="pane-acct" aria-labelledby="tab-acct"></div>
+      <div role="tabpanel" id="pane-key" aria-labelledby="tab-key" hidden>
+        <form id="key-form" novalidate>
+          <div class="field">
+            <label for="key-app">Heroku app name</label>
+            <input type="text" id="key-app" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="my-app" required>
+          </div>
+          <div class="field">
+            <label for="key-key">Heroku API key</label>
+            <input type="password" id="key-key" autocomplete="off" required>
+            <div class="hint">Create a dedicated key with <code>heroku authorizations:create -d autosleep</code> and paste the token here.</div>
+          </div>
+          <button type="submit" hidden></button>
+        </form>
+      </div>
+      <details class="adv" id="adv">
+        <summary>Advanced options</summary>
+        <div class="field">
+          <label for="adv-idle">Sleep after this many idle minutes</label>
+          <input type="number" id="adv-idle" min="1" step="1" value="30" inputmode="numeric">
+        </div>
+        <label class="toggle"><input type="checkbox" id="adv-night"><div><b>Night mode</b><span>Only sleep during the night window (set by the server's NIGHT_MODE_* settings)</span></div></label>
+        <label class="toggle"><input type="checkbox" id="adv-web"><div><b>Web only</b><span>Only stop web dynos; workers keep running</span></div></label>
+        <label class="toggle"><input type="checkbox" id="adv-manual"><div><b>Manual wake</b><span>Don't wake on traffic; wake only from this dashboard or the API</span></div></label>
+      </details>
+      <div id="add-err"></div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn" type="button" data-close>Close</button>
+      <button class="btn primary" type="button" id="key-submit" hidden>Add app</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Settings -->
+<dialog id="dlg-settings" aria-labelledby="set-h">
+  <form class="dlg" id="set-form" novalidate>
+    <div class="dlg-head">
+      <div><h2 id="set-h">Settings</h2><p id="set-sub"></p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <div class="row2">
+        <div class="field">
+          <label for="set-idle">Idle minutes before sleeping</label>
+          <input type="number" id="set-idle" min="1" step="1" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="set-check">Check every (minutes)</label>
+          <input type="number" id="set-check" min="0.5" step="0.5" inputmode="decimal">
+          <div class="hint">How often AutoSleep looks for idle apps.</div>
+        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="set-night"><div><b>Night mode</b><span>Only sleep during the night window (set by the server's NIGHT_MODE_* settings)</span></div></label>
+      <label class="toggle"><input type="checkbox" id="set-web"><div><b>Web only</b><span>Only stop web dynos; workers keep running</span></div></label>
+      <label class="toggle"><input type="checkbox" id="set-manual"><div><b>Manual wake</b><span>Don't wake on traffic; wake only from this dashboard or the API</span></div></label>
+      <label class="toggle"><input type="checkbox" id="set-wake"><div><b>Waking page</b><span>Show visitors a friendly 'waking up' page instead of Heroku's error page. Sets ERROR_PAGE_URL on the app, which restarts it once.</span></div></label>
+      <div id="set-err"></div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button class="btn primary" type="submit" id="set-save">Save changes</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- History -->
+<dialog id="dlg-history" class="wide" aria-labelledby="hist-h">
+  <div class="dlg">
+    <div class="dlg-head">
+      <div><h2 id="hist-h">History</h2><p>Recent sleeps and wakes, plus savings over the last 30 days.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="dlg-body" id="hist-body"></div>
+    <div class="dlg-foot"><button class="btn" type="button" data-close>Close</button></div>
+  </div>
+</dialog>
+
+<!-- Remove -->
+<dialog id="dlg-remove" aria-labelledby="rm-h">
+  <div class="dlg">
+    <div class="dlg-head">
+      <div><h2 id="rm-h">Remove app</h2></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="dlg-body" id="rm-body"></div>
+    <div class="dlg-foot">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button class="btn danger" type="button" id="rm-force" hidden>Remove anyway</button>
+      <button class="btn danger" type="button" id="rm-go">Remove app</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  var state = { apps: [], summary: null, loaded: false, loadError: '', busy: {}, sleptAt: {}, accounts: null, acctApps: {}, settingsApp: null, removeApp: null };
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  // ---------- helpers ----------
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var usdFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function usd(n) { return usdFmt.format(Number(n) || 0); }
+  function num(n, d) { return (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 1 : d }); }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function parseTime(iso) {
+    if (!iso) return null;
+    var t = Date.parse(iso);
+    if (isNaN(t) || t < 86400000) return null; // ignore Go zero times
+    return t;
+  }
+  function dur(ms) {
+    var m = Math.round(Math.abs(ms) / 60000);
+    if (m < 1) return 'less than a minute';
+    if (m < 60) return m + ' min';
+    var h = Math.floor(m / 60), rm = m % 60;
+    if (h < 10) return rm ? h + 'h ' + rm + 'm' : h + 'h';
+    if (h < 48) return h + 'h';
+    return Math.floor(h / 24) + 'd';
+  }
+  function relText(t, fmt) {
+    var diff = t - Date.now();
+    if (fmt === 'sleeps') return diff > 30000 ? 'Sleeps in ' + dur(diff) : 'Going to sleep shortly';
+    if (fmt === 'since') return 'Sleeping for ' + dur(diff);
+    if (Math.abs(diff) < 45000) return 'just now';
+    return diff < 0 ? dur(diff) + ' ago' : 'in ' + dur(diff);
+  }
+  function abs(t) {
+    try { return new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+    catch (e) { return new Date(t).toLocaleString(); }
+  }
+  function relSpan(t, fmt) {
+    return '<span data-rel="' + t + '" data-fmt="' + fmt + '" title="' + esc(abs(t)) + '">' + esc(relText(t, fmt)) + '</span>';
+  }
+  function tick() {
+    $$('[data-rel]').forEach(function (el) { el.textContent = relText(Number(el.getAttribute('data-rel')), el.getAttribute('data-fmt')); });
+  }
+  function minutes(sec) { var m = (Number(sec) || 0) / 60; return Math.round(m * 10) / 10; }
+  function enc(s) { return encodeURIComponent(s); }
+
+  var ICON = {
+    moon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 3a9 9 0 1 0 6 15.7A8 8 0 0 1 15 3z"/></svg>',
+    sun: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    warn: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'
+  };
+
+  // ---------- API ----------
+  function api(method, path, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: { 'Accept': 'application/json' } };
+    if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch(path, opts).then(function (res) {
+      return res.text().then(function (text) {
+        var data = null;
+        if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
+        if (!res.ok) {
+          var err = new Error((data && data.error) || ('Request failed (HTTP ' + res.status + ')'));
+          err.status = res.status;
+          throw err;
+        }
+        return data || {};
+      });
+    }, function () {
+      var err = new Error('Network error. Is the server reachable?');
+      err.status = 0;
+      throw err;
+    });
+  }
+
+  // ---------- toasts ----------
+  function toast(msg, kind) {
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind === 'error' ? ' error' : '');
+    if (kind === 'error') el.setAttribute('role', 'alert');
+    var p = document.createElement('p');
+    p.textContent = msg;
+    var x = document.createElement('button');
+    x.className = 'icon-btn'; x.type = 'button'; x.setAttribute('aria-label', 'Dismiss');
+    x.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    x.onclick = function () { el.remove(); };
+    el.appendChild(p); el.appendChild(x);
+    $('#toasts').appendChild(el);
+    setTimeout(function () { el.remove(); }, kind === 'error' ? 9000 : 5000);
+  }
+
+  // ---------- data loading ----------
+  var refreshing = null;
+  function refresh() {
+    if (refreshing) return refreshing;
+    refreshing = Promise.all([
+      api('GET', '/app').then(function (d) { return { ok: true, v: d }; }, function (e) { return { ok: false, e: e }; }),
+      api('GET', '/savings?days=30').then(function (d) { return { ok: true, v: d }; }, function (e) { return { ok: false, e: e }; })
+    ]).then(function (r) {
+      if (r[0].ok) {
+        state.apps = r[0].v.list || [];
+        state.loaded = true;
+        state.loadError = '';
+      } else {
+        if (!state.loadError) toast(r[0].e.message, 'error');
+        state.loadError = r[0].e.message;
+      }
+      if (r[1].ok) state.summary = r[1].v.data || null;
+      return loadSleptAt();
+    }).then(function () {
+      render();
+      $('#updated').textContent = 'Updated ' + new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }).then(function () { refreshing = null; }, function () { refreshing = null; });
+    return refreshing;
+  }
+
+  // For asleep apps, find when they went to sleep from their latest history.
+  function loadSleptAt() {
+    var asleep = state.apps.filter(function (a) { return a.status === 'asleep'; }).slice(0, 25);
+    return Promise.all(asleep.map(function (a) {
+      return api('GET', '/app/' + enc(a.heroku_app_name) + '/history?limit=10').then(function (d) {
+        var best = null;
+        (d.list || []).forEach(function (ev) {
+          var t = parseTime(ev.performed_at);
+          if (ev.action === false && t && (!best || t > best)) best = t;
+        });
+        state.sleptAt[a.heroku_app_name] = best;
+      }, function () { /* best effort */ });
+    }));
+  }
+
+  // ---------- rendering ----------
+  function renderSummary() {
+    var s = state.summary;
+    var apps = state.apps;
+    var asleep = s ? s.asleep : apps.filter(function (a) { return a.status === 'asleep'; }).length;
+    var awake = s ? s.awake : apps.filter(function (a) { return a.status === 'awake'; }).length;
+    var paused = s ? s.paused : apps.filter(function (a) { return a.status === 'paused'; }).length;
+    var dash = '<span class="muted">—</span>';
+    $('#tiles').innerHTML =
+      '<div class="tile"><div class="label">Saved last 30 days</div><div class="value num">' + (s ? esc(usd(s.saved_usd)) : dash) + '</div></div>' +
+      '<div class="tile"><div class="label">Projected per month</div><div class="value num">' + (s ? esc(usd(s.projected_monthly_usd)) : dash) + '</div></div>' +
+      '<div class="tile"><div class="label">Apps</div><div class="value num split">' +
+        '<span title="Asleep">' + esc(asleep) + ' <small class="muted" style="font-size:12.5px;font-weight:400">asleep</small></span>' +
+        '<span title="Awake">' + esc(awake) + ' <small class="muted" style="font-size:12.5px;font-weight:400">awake</small></span>' +
+        (paused ? '<span title="Paused">' + esc(paused) + ' <small class="muted" style="font-size:12.5px;font-weight:400">paused</small></span>' : '') +
+      '</div></div>' +
+      '<div class="tile"><div class="label">Dyno-hours slept</div><div class="value num">' + (s ? esc(num(s.slept_dyno_hours)) : dash) + '</div><div class="sub">last 30 days</div></div>';
+    var note = 'Savings are estimates based on Heroku list prices for the dynos that were asleep.';
+    if (s && s.unpriced_sizes && s.unpriced_sizes.length) note += ' Dyno sizes without a known price were not counted: ' + s.unpriced_sizes.join(', ') + '.';
+    $('#sum-note').textContent = note;
+  }
+
+  function statusCell(a) {
+    var st = a.status || (a.paused ? 'paused' : a.current_status ? 'awake' : 'asleep');
+    var pill, when;
+    if (st === 'paused') {
+      pill = '<span class="pill paused"><span class="dot"></span>Paused</span>';
+      when = 'AutoSleep paused';
+    } else if (st === 'asleep') {
+      pill = '<span class="pill asleep">' + ICON.moon + 'Asleep</span>';
+      var t = state.sleptAt[a.heroku_app_name];
+      when = t ? relSpan(t, 'since') : 'Asleep';
+    } else {
+      pill = '<span class="pill awake"><span class="dot"></span>Awake</span>';
+      var n = parseTime(a.next_sleep_at);
+      if (n) when = relSpan(n, 'sleeps');
+      else if (a.night_mode) when = 'Waiting for the night window';
+      else when = 'Awake';
+    }
+    return pill + '<div class="when">' + when + '</div>';
+  }
+
+  function actionBtn(act, name, label, cls, disabled) {
+    return '<button type="button" class="btn sm ' + (cls || '') + '" data-act="' + act + '" data-name="' + esc(name) + '" data-fk="' + esc(act + ':' + name) + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>';
+  }
+
+  function appRow(a) {
+    var name = a.heroku_app_name;
+    var busy = !!state.busy[name];
+    var st = a.status || 'awake';
+    var badges = [];
+    if (a.night_mode) badges.push('Night mode');
+    if (a.web_only) badges.push('Web only');
+    if (a.manual_mode) badges.push('Manual wake');
+    if (a.wake_page) badges.push('Waking page');
+    var per = state.summary && state.summary.per_app && state.summary.per_app[name];
+    var errT = parseTime(a.last_error_at);
+    var html = '<tr>';
+    html += '<td data-label="App"><a class="app-name" href="https://' + esc(enc(name)) + '.herokuapp.com" target="_blank" rel="noopener noreferrer">' + esc(name) + '</a>';
+    if (a.account_email) html += '<div class="app-meta">' + esc(a.account_email) + '</div>';
+    if (badges.length) html += '<div class="badges">' + badges.map(function (b) { return '<span class="badge">' + esc(b) + '</span>'; }).join('') + '</div>';
+    if (a.last_error) html += '<div class="err-line">' + ICON.warn + '<span>' + esc(a.last_error) + (errT ? ' <span class="muted">· ' + relSpan(errT, 'ago') + '</span>' : '') + '</span></div>';
+    html += '</td>';
+    html += '<td class="c-status" data-label="Status">' + statusCell(a) + '</td>';
+    html += '<td class="c-stat num" data-label="Idle timeout">' + esc(num(minutes(a.ideal_time))) + ' min</td>';
+    html += '<td class="c-stat num right" data-label="Saved (30d)">' + (per ? esc(usd(per.saved_usd)) : '<span class="muted">—</span>') + '</td>';
+    html += '<td class="c-actions right" data-label="Actions"><div class="row-actions">';
+    if (st === 'asleep') html += actionBtn('wake', name, ICON.sun + 'Wake now', 'primary', busy);
+    if (st === 'awake') html += actionBtn('sleep', name, ICON.moon + 'Sleep now', '', busy);
+    html += actionBtn(a.paused ? 'resume' : 'pause', name, a.paused ? 'Resume' : 'Pause', '', busy);
+    html += actionBtn('settings', name, 'Settings', 'ghost', busy);
+    html += actionBtn('history', name, 'History', 'ghost', busy);
+    html += actionBtn('remove', name, 'Remove', 'ghost warn', busy);
+    html += '</div></td></tr>';
+    return html;
+  }
+
+  function renderApps() {
+    var box = $('#apps');
+    $('#banner').innerHTML = state.loadError && state.loaded ? '<div class="banner" role="alert">Couldn\'t refresh: ' + esc(state.loadError) + '</div>' : '';
+    if (!state.loaded) {
+      box.innerHTML = state.loadError
+        ? '<div class="loading">Couldn\'t load apps: ' + esc(state.loadError) + '<br><br><button class="btn" type="button" data-act="reload">Try again</button></div>'
+        : '<div class="loading">Loading your apps…</div>';
+      return;
+    }
+    if (!state.apps.length) {
+      box.innerHTML = '<div class="empty">' +
+        '<div class="logo" style="margin:0 auto" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M15 3a9 9 0 1 0 6 15.7A8 8 0 0 1 15 3z"/></svg></div>' +
+        '<h3>No apps yet</h3><p>AutoSleep turns off dynos for apps nobody is using, and turns them back on as soon as someone visits. You only pay for the time they are actually awake.</p>' +
+        '<ol class="steps">' +
+        '<li><span class="n">1</span><b>Connect Heroku</b><span class="d">Connect your Heroku account, or paste an API key.</span></li>' +
+        '<li><span class="n">2</span><b>Pick an app</b><span class="d">Choose which app AutoSleep should look after.</span></li>' +
+        '<li><span class="n">3</span><b>Relax</b><span class="d">It sleeps after 30 idle minutes (you can change this) and wakes on the next request.</span></li>' +
+        '</ol><button class="btn primary" type="button" data-open-add>Add your first app</button></div>';
+      return;
+    }
+    var sorted = state.apps.slice().sort(function (x, y) { return x.heroku_app_name.localeCompare(y.heroku_app_name); });
+    box.innerHTML = '<table class="apps"><thead><tr><th scope="col">App</th><th scope="col">Status</th><th scope="col">Idle timeout</th><th scope="col" class="right">Saved (30d)</th><th scope="col" class="right"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      sorted.map(appRow).join('') + '</tbody></table>';
+  }
+
+  function render() {
+    var fk = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-fk');
+    renderSummary();
+    renderApps();
+    if (fk) {
+      var el = $$('[data-fk]').filter(function (e) { return e.getAttribute('data-fk') === fk; })[0];
+      if (el && !el.disabled) el.focus();
+    }
+  }
+
+  function findApp(name) { return state.apps.filter(function (a) { return a.heroku_app_name === name; })[0]; }
+  function replaceApp(app) {
+    if (!app || !app.heroku_app_name) return;
+    for (var i = 0; i < state.apps.length; i++) if (state.apps[i].heroku_app_name === app.heroku_app_name) { state.apps[i] = app; return; }
+    state.apps.push(app);
+  }
+
+  // ---------- row actions ----------
+  var ACTION_MSG = {
+    wake: ['Waking ', '. It may take a few seconds to boot.'],
+    sleep: ['', ' is going to sleep.'],
+    pause: ['AutoSleep paused for ', '.'],
+    resume: ['AutoSleep resumed for ', '.']
+  };
+  function doAction(act, name) {
+    state.busy[name] = true; render();
+    api('POST', '/app/' + enc(name) + '/' + act).then(function (d) {
+      replaceApp(d.data);
+      toast(ACTION_MSG[act][0] + name + ACTION_MSG[act][1]);
+    }, function (e) { toast(e.message, 'error'); }).then(function () {
+      delete state.busy[name];
+      render();
+      refresh();
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('[data-open-add],[data-act],[data-close]') : null;
+    if (!t) return;
+    if (t.hasAttribute('data-open-add')) return openAdd();
+    if (t.hasAttribute('data-close')) { var d = t.closest('dialog'); if (d) d.close(); return; }
+    var act = t.getAttribute('data-act'), name = t.getAttribute('data-name');
+    if (act === 'reload') return refresh();
+    if (!name || state.busy[name]) return;
+    if (act === 'settings') return openSettings(name);
+    if (act === 'history') return openHistory(name);
+    if (act === 'remove') return openRemove(name);
+    if (ACTION_MSG[act]) doAction(act, name);
+  });
+
+  // close dialogs on backdrop click
+  $$('dialog').forEach(function (d) {
+    d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+  });
+  function showDialog(d) { if (!d.open) d.showModal(); }
+  function formErr(el, msg) { el.innerHTML = msg ? '<div class="form-err" role="alert">' + esc(msg) + '</div>' : ''; }
+
+  // ---------- add app ----------
+  var addTab = 'acct';
+  function setTab(which) {
+    addTab = which;
+    var acct = which === 'acct';
+    $('#tab-acct').setAttribute('aria-selected', String(acct));
+    $('#tab-key').setAttribute('aria-selected', String(!acct));
+    $('#tab-acct').tabIndex = acct ? 0 : -1;
+    $('#tab-key').tabIndex = acct ? -1 : 0;
+    $('#pane-acct').hidden = !acct;
+    $('#pane-key').hidden = acct;
+    $('#key-submit').hidden = acct;
+    formErr($('#add-err'), '');
+  }
+  $('#tab-acct').onclick = function () { setTab('acct'); };
+  $('#tab-key').onclick = function () { setTab('key'); $('#key-app').focus(); };
+  $('.tabs').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      var next = addTab === 'acct' ? 'key' : 'acct';
+      setTab(next); $('#tab-' + next).focus(); e.preventDefault();
+    }
+  });
+
+  function advOptions() {
+    var mins = Number($('#adv-idle').value);
+    if (!(mins >= 1)) throw new Error('Idle minutes must be at least 1.');
+    return { ideal_time: Math.round(mins * 60), night_mode: $('#adv-night').checked, web_only: $('#adv-web').checked, manual_mode: $('#adv-manual').checked };
+  }
+
+  function openAdd() {
+    $('#key-form').reset();
+    $('#adv-idle').value = 30;
+    ['#adv-night', '#adv-web', '#adv-manual'].forEach(function (s) { $(s).checked = false; });
+    $('#adv').open = false;
+    setTab('acct');
+    showDialog($('#dlg-add'));
+    loadAccounts();
+  }
+
+  function loadAccounts() {
+    var pane = $('#pane-acct');
+    pane.innerHTML = '<div class="loading">Loading connected accounts…</div>';
+    api('GET', '/accounts').then(function (d) {
+      state.accounts = d.list || [];
+      renderAcctPane();
+    }, function (e) {
+      pane.innerHTML = '<div class="form-err" role="alert">' + esc(e.message) + '</div>';
+    });
+  }
+
+  function renderAcctPane() {
+    var pane = $('#pane-acct');
+    var accts = state.accounts || [];
+    if (!accts.length) {
+      pane.innerHTML = '<div class="cta"><p>No Heroku account connected yet. Connect one to pick apps from a list, or use the API key tab instead.</p><a class="btn primary" href="/register">Connect Heroku account</a></div>';
+      return;
+    }
+    var opts = accts.map(function (a) {
+      var label = a.email || a.name || ('Account #' + a.ID);
+      if (a.name && a.email && a.name !== a.email) label = a.name + ' (' + a.email + ')';
+      return '<option value="' + esc(a.ID) + '">' + esc(label) + '</option>';
+    }).join('');
+    pane.innerHTML =
+      '<div class="row2"><div class="field"><label for="acct-sel">Heroku account</label><select id="acct-sel">' + opts + '</select></div>' +
+      '<div class="field"><label for="acct-q">Search apps</label><input type="search" id="acct-q" placeholder="Filter by name" autocomplete="off"></div></div>' +
+      '<div class="hint" style="margin-top:-6px">Not seeing an account? <a href="/register">Connect another one</a>.</div>' +
+      '<ul class="app-list" id="acct-apps" aria-label="Apps in this account"></ul>';
+    $('#acct-sel').onchange = function () { loadAcctApps(); };
+    $('#acct-q').oninput = function () { renderAcctApps(); };
+    loadAcctApps();
+  }
+
+  function loadAcctApps() {
+    var id = $('#acct-sel').value;
+    var list = $('#acct-apps');
+    list.innerHTML = '<li class="empty-li">Loading apps…</li>';
+    api('GET', '/accounts/' + enc(id) + '/apps').then(function (d) {
+      state.acctApps[id] = d.list || [];
+      if ($('#acct-sel') && $('#acct-sel').value === id) renderAcctApps();
+    }, function (e) {
+      if ($('#acct-sel') && $('#acct-sel').value === id) list.innerHTML = '<li class="empty-li" style="color:var(--danger)">' + esc(e.message) + '</li>';
+    });
+  }
+
+  function renderAcctApps() {
+    var id = $('#acct-sel').value;
+    var all = state.acctApps[id];
+    var list = $('#acct-apps');
+    if (!all) return;
+    var q = ($('#acct-q').value || '').trim().toLowerCase();
+    var apps = all.filter(function (a) { return !q || a.name.toLowerCase().indexOf(q) !== -1; })
+      .sort(function (x, y) { return (x.managed - y.managed) || x.name.localeCompare(y.name); });
+    if (!apps.length) {
+      list.innerHTML = '<li class="empty-li">' + (all.length ? 'No apps match “' + esc(q) + '”.' : 'This account has no apps.') + '</li>';
+      return;
+    }
+    list.innerHTML = apps.map(function (a) {
+      var right = a.managed
+        ? '<span class="badge">Managed</span>'
+        : '<button type="button" class="btn sm primary" data-enable="' + esc(a.name) + '">Enable</button>';
+      return '<li><div style="min-width:0"><div class="nm">' + esc(a.name) + '</div>' +
+        (a.web_url ? '<div class="app-meta">' + esc(a.web_url.replace(/^https?:\/\//, '').replace(/\/$/, '')) + '</div>' : '') +
+        '</div>' + right + '</li>';
+    }).join('');
+  }
+
+  $('#pane-acct').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-enable]');
+    if (!b || b.disabled) return;
+    var name = b.getAttribute('data-enable');
+    var id = Number($('#acct-sel').value);
+    var body;
+    try { body = advOptions(); } catch (err) { formErr($('#add-err'), err.message); $('#adv').open = true; return; }
+    body.heroku_app_name = name;
+    body.account_id = id;
+    formErr($('#add-err'), '');
+    b.disabled = true; b.textContent = 'Enabling…';
+    api('POST', '/app', body).then(function (d) {
+      (state.acctApps[id] || []).forEach(function (a) { if (a.name === name) a.managed = true; });
+      replaceApp(d.data);
+      renderAcctApps(); render();
+      toast(name + ' is now managed by AutoSleep.');
+      refresh();
+    }, function (err) {
+      b.disabled = false; b.textContent = 'Enable';
+      toast(err.message, 'error');
+    });
+  });
+
+  function submitKey(e) {
+    if (e) e.preventDefault();
+    var name = $('#key-app').value.trim(), key = $('#key-key').value.trim();
+    if (!name) { formErr($('#add-err'), 'Enter the Heroku app name.'); $('#key-app').focus(); return; }
+    if (!key) { formErr($('#add-err'), 'Paste a Heroku API key.'); $('#key-key').focus(); return; }
+    var body;
+    try { body = advOptions(); } catch (err) { formErr($('#add-err'), err.message); $('#adv').open = true; return; }
+    body.heroku_app_name = name;
+    body.heroku_api_key = key;
+    formErr($('#add-err'), '');
+    var btn = $('#key-submit');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    api('POST', '/app', body).then(function (d) {
+      replaceApp(d.data); render();
+      $('#dlg-add').close();
+      toast(name + ' is now managed by AutoSleep.');
+      refresh();
+    }, function (err) {
+      formErr($('#add-err'), err.message);
+      toast(err.message, 'error');
+    }).then(function () { btn.disabled = false; btn.textContent = 'Add app'; });
+  }
+  $('#key-form').addEventListener('submit', submitKey);
+  $('#key-submit').addEventListener('click', submitKey);
+
+  // ---------- settings ----------
+  function openSettings(name) {
+    var a = findApp(name);
+    if (!a) return;
+    state.settingsApp = a;
+    $('#set-sub').textContent = name;
+    $('#set-idle').value = minutes(a.ideal_time);
+    $('#set-check').value = minutes(a.check_interval);
+    $('#set-night').checked = !!a.night_mode;
+    $('#set-web').checked = !!a.web_only;
+    $('#set-manual').checked = !!a.manual_mode;
+    $('#set-wake').checked = !!a.wake_page;
+    formErr($('#set-err'), '');
+    showDialog($('#dlg-settings'));
+  }
+
+  $('#set-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = state.settingsApp;
+    if (!a) return;
+    var idle = Number($('#set-idle').value), check = Number($('#set-check').value);
+    if (!(idle >= 1)) return formErr($('#set-err'), 'Idle minutes must be at least 1.');
+    if (!(check >= 0.5)) return formErr($('#set-err'), 'Check interval must be at least 0.5 minutes (30 seconds).');
+    var patch = {};
+    var idleSec = Math.round(idle * 60), checkSec = Math.round(check * 60);
+    if (idleSec !== Math.round(Number(a.ideal_time) || 0)) patch.ideal_time = idleSec;
+    if (checkSec !== Math.round(Number(a.check_interval) || 0)) patch.check_interval = checkSec;
+    [['night_mode', '#set-night'], ['web_only', '#set-web'], ['manual_mode', '#set-manual'], ['wake_page', '#set-wake']].forEach(function (p) {
+      if ($(p[1]).checked !== !!a[p[0]]) patch[p[0]] = $(p[1]).checked;
+    });
+    if (!Object.keys(patch).length) { $('#dlg-settings').close(); toast('No changes to save.'); return; }
+    var btn = $('#set-save'), name = a.heroku_app_name;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    state.busy[name] = true; render();
+    api('PATCH', '/app/' + enc(name), patch).then(function (d) {
+      replaceApp(d.data);
+      $('#dlg-settings').close();
+      toast('Settings saved for ' + name + '.');
+    }, function (err) {
+      formErr($('#set-err'), err.message);
+      toast(err.message, 'error');
+    }).then(function () {
+      btn.disabled = false; btn.textContent = 'Save changes';
+      delete state.busy[name]; render(); refresh();
+    });
+  });
+
+  // ---------- history ----------
+  var REASONS = { idle: 'No traffic for a while', traffic: 'Someone visited the app', manual: 'From the dashboard or API', removed: 'App removed from AutoSleep', repair: 'Restored dynos that had stopped unexpectedly', resumed: 'AutoSleep resumed' };
+  // One sleep or wake writes a row per process type; show them as one event.
+  function groupEvents(events) {
+    var out = [];
+    events.forEach(function (ev) {
+      var key = ev.action + '|' + ev.reason + '|' + String(ev.performed_at).slice(0, 19);
+      var last = out[out.length - 1];
+      var d = ev.dyno_name ? ev.dyno_name + (ev.quantity ? ' ×' + ev.quantity : '') + (ev.dyno_size ? ' ' + ev.dyno_size : '') : '';
+      if (last && last.key === key) { if (d) last.dynos.push(d); return; }
+      out.push({ key: key, action: ev.action, reason: ev.reason, performed_at: ev.performed_at, dynos: d ? [d] : [] });
+    });
+    return out;
+  }
+  function openHistory(name) {
+    $('#hist-h').textContent = 'History · ' + name;
+    var body = $('#hist-body');
+    body.innerHTML = '<div class="loading">Loading history…</div>';
+    showDialog($('#dlg-history'));
+    Promise.all([
+      api('GET', '/app/' + enc(name) + '/history?limit=100'),
+      api('GET', '/app/' + enc(name) + '/savings?days=30').then(null, function () { return null; })
+    ]).then(function (r) {
+      var events = (r[0].list || []).slice().sort(function (x, y) { return (parseTime(y.performed_at) || 0) - (parseTime(x.performed_at) || 0); });
+      var rep = r[1] && r[1].data;
+      var html = '';
+      if (rep) {
+        html += '<div class="mini-stats">' +
+          '<div><b class="num">' + esc(usd(rep.saved_usd)) + '</b>saved, last 30 days</div>' +
+          '<div><b class="num">' + esc(usd(rep.projected_monthly_usd)) + '</b>projected per month</div>' +
+          '<div><b class="num">' + esc(num(rep.sleeping_percent, 0)) + '%</b>of the time asleep</div>' +
+          '<div><b class="num">' + esc(num(rep.slept_dyno_hours)) + '</b>dyno-hours slept</div></div>';
+      }
+      html += '<h3 class="sub">Activity</h3>';
+      if (!events.length) html += '<p class="muted">Nothing yet. Events show up here once the app sleeps or wakes.</p>';
+      else html += '<ul class="timeline">' + groupEvents(events).map(function (ev) {
+        var slept = ev.action === false;
+        var t = parseTime(ev.performed_at);
+        var dyno = ev.dynos.join(', ');
+        return '<li><span class="ev-icon ' + (slept ? 'slept' : 'woke') + '">' + (slept ? ICON.moon : ICON.sun) + '</span>' +
+          '<div><div class="ev-title">' + (slept ? 'Slept' : 'Woke') + '</div><div class="ev-sub">' + esc(REASONS[ev.reason] || ev.reason || '') + (dyno ? ' · ' + esc(dyno) : '') + '</div></div>' +
+          '<div class="ev-time">' + (t ? relSpan(t, 'ago') + '<br>' + esc(abs(t)) : '') + '</div></li>';
+      }).join('') + '</ul>';
+      if (rep && rep.breakdown && rep.breakdown.length) {
+        html += '<h3 class="sub">Savings breakdown (30 days)</h3><div style="overflow-x:auto"><table class="bd"><thead><tr><th scope="col">Dyno</th><th scope="col">Hours slept</th><th scope="col">Price / hour</th><th scope="col">Saved</th></tr></thead><tbody>' +
+          rep.breakdown.map(function (b) {
+            return '<tr><td>' + esc(b.type) + ' <span class="muted">' + esc(b.size) + '</span></td><td class="num">' + esc(num(b.slept_dyno_hours)) + '</td><td class="num">' +
+              (b.unpriced ? '<span class="muted">unknown</span>' : esc(usd(b.hourly_price_usd))) + '</td><td class="num">' + (b.unpriced ? '<span class="muted">—</span>' : esc(usd(b.saved_usd))) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+        if (rep.unpriced_sizes && rep.unpriced_sizes.length) html += '<p class="note">Not priced: ' + esc(rep.unpriced_sizes.join(', ')) + '.</p>';
+        html += '<p class="note">Estimates based on Heroku list prices.</p>';
+      }
+      body.innerHTML = html;
+    }, function (e) {
+      body.innerHTML = '<div class="form-err" role="alert">' + esc(e.message) + '</div>';
+      toast(e.message, 'error');
+    });
+  }
+
+  // ---------- remove ----------
+  function openRemove(name) {
+    var a = findApp(name);
+    state.removeApp = name;
+    $('#rm-h').textContent = 'Remove ' + name + '?';
+    $('#rm-body').innerHTML = '<p>AutoSleep will stop watching <b>' + esc(name) + '</b>. Your app itself is not deleted.</p>' +
+      '<ul class="muted" style="padding-left:18px;margin:0">' +
+      (a && a.status === 'asleep' ? '<li>It is asleep right now, so it will be woken up first (its dynos are restored).</li>' : '<li>If it is asleep, it is woken up first so its dynos are restored.</li>') +
+      '<li>The log drain AutoSleep added to the app is removed.</li></ul><div id="rm-err"></div>';
+    $('#rm-force').hidden = true;
+    $('#rm-go').hidden = false;
+    $('#rm-go').disabled = false;
+    showDialog($('#dlg-remove'));
+  }
+  function doRemove(force) {
+    var name = state.removeApp;
+    if (!name) return;
+    var go = $('#rm-go'), fb = $('#rm-force');
+    go.disabled = true; fb.disabled = true;
+    state.busy[name] = true; render();
+    api('DELETE', '/app/' + enc(name) + (force ? '?force=true' : '')).then(function () {
+      state.apps = state.apps.filter(function (a) { return a.heroku_app_name !== name; });
+      $('#dlg-remove').close();
+      toast(name + ' was removed from AutoSleep.');
+    }, function (err) {
+      var errBox = $('#rm-err');
+      if (err.status === 502 && !force) {
+        formErr(errBox, err.message + ' You can remove it anyway; the app may stay asleep and you would need to scale its dynos back up yourself.');
+        go.hidden = true; fb.hidden = false;
+      } else {
+        formErr(errBox, err.message);
+      }
+      toast(err.message, 'error');
+    }).then(function () {
+      go.disabled = false; fb.disabled = false;
+      delete state.busy[name]; render(); refresh();
+    });
+  }
+  $('#rm-go').onclick = function () { doRemove(false); };
+  $('#rm-force').onclick = function () { doRemove(true); };
+
+  // ---------- boot ----------
+  (function handleConnected() {
+    var params = new URLSearchParams(location.search);
+    var who = params.get('connected');
+    if (who === null) return;
+    toast('Heroku account connected' + (who ? ': ' + who : '') + '. You can now add its apps.');
+    params.delete('connected');
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  })();
+
+  refresh();
+  setInterval(function () { if (!document.hidden) refresh(); }, 30000);
+  setInterval(tick, 15000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+})();
+</script>
+</body>
+</html>

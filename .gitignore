@@ -1,2 +1,27 @@
+# Editors / IDEs
 .vscode/
+.idea/
+*.swp
+
+# Env / secrets
 .env
+.env.local
+*.pem
+
+# Build output
+/autosleep
+/bin/
+dist/
+tmp/
+
+# Test / coverage
+coverage.out
+coverage.html
+*.test
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

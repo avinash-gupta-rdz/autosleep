@@ -3,92 +3,69 @@ package models
 import (
 	"autosleep/constants"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/md5"
-	"crypto/rand"
-	"encoding/hex"
-	"github.com/jinzhu/gorm"
-	"golang.org/x/oauth2"
-	"io"
+	"fmt"
 	"time"
+
+	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
 
 type Account struct {
 	gorm.Model
-	Email   string `gorm:"type:varchar(255);index:idx_email,unique",json:"email"`
+	Email   string `gorm:"type:varchar(255);index:idx_email,unique" json:"email"`
 	Name    string `json:"name"`
 	Country string `json:"country"`
 
-	AccessToken  []byte    `json:"access_token"`
-	RefreshToken []byte    `json:"refresh_token"`
+	AccessToken  []byte    `json:"-"`
+	RefreshToken []byte    `json:"-"`
 	ExpiredAt    time.Time `json:"expired_at"`
 }
 
-func (act *Account) CurrentAccessToken() string {
-	current := time.Now().UTC()
-	diff := act.ExpiredAt.Sub(current)
-	if diff.Seconds() < 0 {
-		return act.refreshToken()
-	} else {
+// TokenExpiry returns when a freshly issued token should be considered
+// expired. Heroku OAuth tokens live 8 hours; we refresh 5 minutes early.
+func TokenExpiry(token *oauth2.Token) time.Time {
+	if !token.Expiry.IsZero() {
+		return token.Expiry.UTC().Add(-5 * time.Minute)
+	}
+	return time.Now().UTC().Add(7*time.Hour + 55*time.Minute)
+}
+
+// CurrentAccessToken returns a valid access token, refreshing it first if it
+// has expired.
+func (act *Account) CurrentAccessToken() (string, error) {
+	if time.Now().UTC().Before(act.ExpiredAt) {
 		return Decrypt(act.AccessToken)
 	}
-
+	return act.refreshToken()
 }
 
-func (act *Account) refreshToken() string {
-	token := new(oauth2.Token)
-	token.AccessToken = Decrypt(act.AccessToken)
-	token.RefreshToken = Decrypt(act.RefreshToken)
-	token.Expiry = act.ExpiredAt
-	token.TokenType = "Bearer"
-	token, err := constants.OauthConfig.TokenSource(context.Background(), token).Token()
+func (act *Account) refreshToken() (string, error) {
+	access, err := Decrypt(act.AccessToken)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
-
-	expired_at := time.Now().UTC().Add(time.Hour*time.Duration(7) +
-		time.Minute*time.Duration(55))
-	DB.Model(&act).Updates(map[string]interface{}{"access_token": Encrypt(token.AccessToken), "refresh_token": Encrypt(token.RefreshToken), "expired_at": expired_at})
-	return token.AccessToken
-}
-
-func Encrypt(data string) []byte {
-	gcm := createHashGcm()
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
-	}
-	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
-	return ciphertext
-}
-
-func Decrypt(data []byte) string {
-	gcm := createHashGcm()
-	nonceSize := gcm.NonceSize()
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	refresh, err := Decrypt(act.RefreshToken)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
-	return string(plaintext)
-}
-
-func createHashGcm() cipher.AEAD {
-	hasher := md5.New()
-	hasher.Write([]byte(constants.Passphrase))
-	hash := hex.EncodeToString(hasher.Sum(nil))
-
-	block, _ := aes.NewCipher([]byte(hash))
-	gcm, err := cipher.NewGCM(block)
+	token := &oauth2.Token{AccessToken: access, RefreshToken: refresh, Expiry: act.ExpiredAt, TokenType: "Bearer"}
+	token, err = constants.OauthConfig.TokenSource(context.Background(), token).Token()
 	if err != nil {
-		panic(err.Error())
+		return "", fmt.Errorf("refreshing Heroku token for %s: %w", act.Email, err)
 	}
-	return gcm
-}
 
-//  func createHash(key string) string {
-//   hasher := md5.New()
-//   hasher.Write([]byte(key))
-//   return hex.EncodeToString(hasher.Sum(nil))
-// }
+	act.AccessToken = Encrypt(token.AccessToken)
+	if token.RefreshToken != "" {
+		act.RefreshToken = Encrypt(token.RefreshToken)
+	}
+	act.ExpiredAt = TokenExpiry(token)
+	if DB != nil {
+		err = DB.Model(&Account{}).Where("id = ?", act.ID).Updates(map[string]interface{}{
+			"access_token": act.AccessToken, "refresh_token": act.RefreshToken, "expired_at": act.ExpiredAt,
+		}).Error
+		if err != nil {
+			return "", err
+		}
+	}
+	return token.AccessToken, nil
+}
