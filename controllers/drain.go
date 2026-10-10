@@ -46,6 +46,7 @@ func ProcessDrain(c *gin.Context) {
 	}
 	app, err := sleeper.Load(models.DB, name)
 	if err != nil {
+		drainSeen.mark(name, now) // e.g. a drain left on a removed app: don't look it up on every batch
 		metrics.DrainRejected.WithLabelValues("unknown_app").Inc()
 		jsonError(c, http.StatusNotFound, "unknown app")
 		return
@@ -61,6 +62,7 @@ func ProcessDrain(c *gin.Context) {
 		}
 	}
 	if heartbeat {
+		drainSeen.mark(name, now)
 		models.DB.Model(&models.Application{}).Where("id = ?", app.ID).Update("last_drain_at", now)
 	}
 	if !summary.Traffic {
@@ -116,17 +118,23 @@ type throttle struct {
 	last  map[string]time.Time
 }
 
+// due reports whether key hasn't been marked within the interval.
 func (t *throttle) due(key string, now time.Time) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if last, ok := t.last[key]; ok && now.Sub(last) < t.every && !now.Before(last) {
-		return false
-	}
+	last, ok := t.last[key]
+	return !ok || now.Sub(last) >= t.every || now.Before(last)
+}
+
+// mark records key as seen. Only authenticated batches are marked, so
+// forged posts can't suppress a real app's heartbeat.
+func (t *throttle) mark(key string, now time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if len(t.last) > 10000 {
 		t.last = map[string]time.Time{}
 	}
 	t.last[key] = now
-	return true
 }
 
 // repairInterval limits repair attempts, since every request to a broken
