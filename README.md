@@ -32,6 +32,8 @@ DEMO_MODE=true go run .           # or: docker build -t autosleep . && docker ru
 Open <http://localhost:8080> and log in as `demo` / `demo`. Nothing real is
 scaled.
 
+![AutoSleep dashboard in demo mode: sleep, check, office hours, enable apps, wake](docs/demo.gif)
+
 ## Set up for real (about 5 minutes)
 
 1. **Create a Heroku API key** for AutoSleep:
