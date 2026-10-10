@@ -18,7 +18,13 @@ cd autosleep
 go test ./...
 ```
 
-To run the app itself, either use Docker:
+To click around the dashboard without any services or a Heroku account:
+
+```bash
+DEMO_MODE=true go run .  # http://localhost:8080, log in as demo / demo
+```
+
+To run the real thing, either use Docker:
 
 ```bash
 docker compose up        # AutoSleep + Postgres + Redis on http://localhost:8080

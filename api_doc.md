@@ -41,7 +41,7 @@ API keys, OAuth tokens and drain tokens are never returned.
 ### Add an app
 
 Use either an API key (`heroku authorizations:create -d autosleep`) or the
-`account_id` of an account connected through `/register`.
+`account_id` of a connected account (see [Heroku accounts](#heroku-accounts)).
 
 ```sh
 curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/app \
@@ -51,6 +51,22 @@ curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/app \
 
 Returns `409` if the app is already managed and `502` if Heroku rejects the
 credentials or the log drain.
+
+The waking page is turned on unless you send `"wake_page": false` (or the
+server sets `WAKE_PAGE_DEFAULT=false`). If the app already has its own
+`ERROR_PAGE_URL`, the app is still added and the response includes a
+`warning`.
+
+Optional office hours keep the app awake on the given days and wake it
+when they start:
+
+```json
+{"awake_days": "mon-fri", "awake_from": "09:00", "awake_to": "18:00", "awake_tz": "Europe/Berlin"}
+```
+
+Days are comma-separated names or ranges (`mon,wed,fri`, `sat-sun`). The
+time zone defaults to `NIGHT_MODE_TZ`. Send `"awake_days": ""` in a `PATCH`
+to remove office hours. While they apply, apps include `awake_until`.
 
 ### List apps / get one app
 
@@ -77,6 +93,17 @@ curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/app/:app_id/pause   # 
 curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/app/:app_id/resume  # re-enable, idle clock restarts
 ```
 
+### Check an app
+
+```sh
+curl -u $API_USER:$API_PASS https://<YOUR_DOMAIN>/app/:app_id/diagnose
+curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/app/:app_id/repair-drain   # re-install the log drain
+```
+
+`diagnose` returns a `list` of checks (`name`, `status` of `ok`, `warn` or
+`fail`, `detail`, `fix`, and an optional `action` such as `repair-drain`).
+Each app also reports `last_drain_at`, when Heroku last delivered its logs.
+
 ### Remove an app
 
 This wakes the app if it is asleep and removes the log drain. If Heroku
@@ -102,10 +129,24 @@ are Heroku list prices; override them with `DYNO_HOURLY_PRICES`.
 ### Heroku accounts
 
 ```sh
-open https://<YOUR_DOMAIN>/register                                      # connect via OAuth (browser)
+curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/accounts \
+  -H 'Content-Type: application/json' -d '{"api_key": "<key>"}'          # connect with an API key
+open https://<YOUR_DOMAIN>/register                                      # or via OAuth (browser)
 curl -u $API_USER:$API_PASS https://<YOUR_DOMAIN>/accounts               # connected accounts
 curl -u $API_USER:$API_PASS https://<YOUR_DOMAIN>/accounts/:id/apps      # their apps, with "managed" flags
+curl -u $API_USER:$API_PASS -X DELETE https://<YOUR_DOMAIN>/accounts/:id # disconnect (409 while apps use it)
 ```
+
+### Setup status, logins and alerts
+
+```sh
+curl -u $API_USER:$API_PASS https://<YOUR_DOMAIN>/setup         # first-run progress, warnings, version
+curl -u $API_USER:$API_PASS https://<YOUR_DOMAIN>/me            # current login and role
+curl -u $API_USER:$API_PASS -X POST https://<YOUR_DOMAIN>/alerts/test   # post a test message to ALERT_WEBHOOK_URL
+```
+
+Logins from `USERS` with the `viewer` role can call every `GET` endpoint;
+anything else returns `403`.
 
 ### Health
 

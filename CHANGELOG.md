@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Demo mode (`DEMO_MODE=true`): try the dashboard with an in-memory database and Redis and a simulated Heroku account, no setup needed.
+- First-run "Get started" checklist on the dashboard (`GET /setup`).
+- Connect a Heroku account by pasting an API key (`POST /accounts`) or with `HEROKU_API_KEY` at deploy time; no OAuth client required. Accounts can be disconnected.
+- Enable many apps at once from the add dialog.
+- Per-app **Check** (`GET /app/:id/diagnose`): Heroku access, log drain, logs arriving (`last_drain_at`), saved formation and last error, with a one-click drain re-install (`POST /app/:id/repair-drain`).
+- The waking page is on by default for new and auto-enrolled apps (`WAKE_PAGE_DEFAULT=false` opts out).
+- Per-app office hours (`awake_days`, `awake_from`, `awake_to`, `awake_tz`): kept awake and woken at the start, wake-on-request outside.
+- Alerts to Slack, Discord or any webhook (`ALERT_WEBHOOK_URL`) for failed sleeps/wakes, recoveries and deleted apps, plus a Monday savings digest (`WEEKLY_DIGEST=false` to disable).
+- Team logins with admin or read-only viewer roles (`USERS`), `GET /me`.
+- Version shown in the dashboard with a daily check for new releases (`UPDATE_CHECK=false` to disable), and [UPGRADING.md](UPGRADING.md).
+- Docs: [comparison with AutoIdle and others](docs/comparison.md) including a migration guide, and an [FAQ](docs/faq.md).
 - Rewritten sleep/wake core: the formation is saved before scaling down and never lost on API errors, state changes use compare-and-set updates, apps marked awake with stopped dynos are repaired on the next request, and a reconciler re-checks every app every 5 minutes.
 - Web dashboard at `/`: status of every app, next sleep time, wake/sleep/pause buttons, one-click enrolment from a connected Heroku account.
 - Savings report (dollars saved, dyno-hours slept, % asleep, monthly projection) from per-process sleep/wake history. `DYNO_HOURLY_PRICES` overrides the price list.

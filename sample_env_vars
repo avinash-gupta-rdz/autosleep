@@ -8,11 +8,14 @@ export REDIS_URL=redis://127.0.0.1:6379
 export PORT=8080
 
 # Optional
+export HEROKU_API_KEY=     # heroku authorizations:create -d autosleep
 export HEROKU_OAUTH_ID=
 export HEROKU_OAUTH_SECRET=
 export SELF_HOST=          # public URL, e.g. https://my-autosleep.herokuapp.com (detected from requests if empty)
 export WHITELISTED_IPS=    # e.g. 203.0.113.0/24 (empty = any IP)
 export AUTO_ENROLL=        # e.g. myapp-pr-*
+export ALERT_WEBHOOK_URL=  # Slack or Discord incoming webhook
+export USERS=              # e.g. alice:s3cret:admin,qa:hunter2:viewer
 export NIGHT_MODE_TZ=UTC
 export NIGHT_MODE_START=15:30
 export NIGHT_MODE_HOURS=12
