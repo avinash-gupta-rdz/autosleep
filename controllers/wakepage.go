@@ -1,53 +1,12 @@
 package controllers
 
 import (
-	"autosleep/herokuclient"
-	"autosleep/models"
 	"bytes"
-	"context"
-	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
-
-// errorPageVar is Heroku's config var for the page shown on router errors
-// such as H14 "No web processes running" — i.e. while an app sleeps.
-const errorPageVar = "ERROR_PAGE_URL"
-
-func wakePageURL(base, app string) string { return base + "/waking/" + app }
-
-// setWakePage points the app's ERROR_PAGE_URL at our waking page, or
-// removes it. It refuses to overwrite an error page the user set up
-// themselves. Changing a config var restarts the app's dynos.
-func setWakePage(ctx context.Context, app *models.Application, base string, enable bool) error {
-	token, err := app.GetToken()
-	if err != nil {
-		return err
-	}
-	hc := herokuclient.New(token)
-	current, err := hc.GetConfigVar(ctx, app.HerokuAppName, errorPageVar)
-	if err != nil {
-		return err
-	}
-	ours := strings.HasSuffix(current, "/waking/"+app.HerokuAppName)
-	if enable {
-		if current != "" && !ours {
-			return fmt.Errorf("%s already has %s=%s; remove it first to use the AutoSleep waking page", app.HerokuAppName, errorPageVar, current)
-		}
-		url := wakePageURL(base, app.HerokuAppName)
-		if current == url {
-			return nil
-		}
-		return hc.SetConfigVar(ctx, app.HerokuAppName, errorPageVar, &url)
-	}
-	if !ours {
-		return nil // never remove a page we didn't set
-	}
-	return hc.SetConfigVar(ctx, app.HerokuAppName, errorPageVar, nil)
-}
 
 var wakingTmpl = template.Must(template.New("waking").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

@@ -16,10 +16,19 @@ type Account struct {
 	Name    string `json:"name"`
 	Country string `json:"country"`
 
+	// AuthType is "oauth" (connected via Heroku OAuth, refreshed every
+	// 8 hours) or "api_key" (a long-lived key pasted by the user).
+	AuthType     string    `gorm:"size:16;not null;default:'oauth'" json:"auth_type"`
 	AccessToken  []byte    `json:"-"`
 	RefreshToken []byte    `json:"-"`
 	ExpiredAt    time.Time `json:"expired_at"`
 }
+
+// Auth types.
+const (
+	AuthOAuth  = "oauth"
+	AuthAPIKey = "api_key"
+)
 
 // TokenExpiry returns when a freshly issued token should be considered
 // expired. Heroku OAuth tokens live 8 hours; we refresh 5 minutes early.
@@ -33,7 +42,7 @@ func TokenExpiry(token *oauth2.Token) time.Time {
 // CurrentAccessToken returns a valid access token, refreshing it first if it
 // has expired.
 func (act *Account) CurrentAccessToken() (string, error) {
-	if time.Now().UTC().Before(act.ExpiredAt) {
+	if act.AuthType == AuthAPIKey || time.Now().UTC().Before(act.ExpiredAt) {
 		return Decrypt(act.AccessToken)
 	}
 	return act.refreshToken()

@@ -26,6 +26,10 @@
       "description": "Encrypts stored Heroku tokens. Don't change it after setup, or stored tokens become unreadable.",
       "generator": "secret"
     },
+    "HEROKU_API_KEY": {
+      "description": "Recommended. A Heroku API key so AutoSleep can see and manage your apps. Create one with `heroku authorizations:create -d autosleep` and paste the Token. You can also add it later in the dashboard.",
+      "required": false
+    },
     "HEROKU_OAUTH_ID": {
       "description": "Optional. OAuth client ID so you can connect your Heroku account with one click (create one at https://dashboard.heroku.com/account/applications with callback URL https://<this-app>.herokuapp.com/auth/heroku/callback). Leave empty to use API keys instead.",
       "required": false

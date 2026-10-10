@@ -66,24 +66,9 @@ func Enroll(parent context.Context, db *gorm.DB, app *models.Application, baseUR
 		return fmt.Errorf("cannot access Heroku app %q with these credentials: %v", app.HerokuAppName, err)
 	}
 	app.CurrentConfig = ConfigFrom(formations)
-	drainURL := fmt.Sprintf("%s/drain/%s", baseURL, app.HerokuAppName)
-	drain, err := hc.CreateDrain(ctx, app.HerokuAppName, drainURL)
+	drain, err := installDrain(ctx, hc, app.HerokuAppName, DrainURL(baseURL, app.HerokuAppName))
 	if err != nil {
-		// A drain left over from an earlier enrolment makes Heroku reject a
-		// duplicate URL; adopt it instead.
-		existing, lerr := hc.ListDrains(ctx, app.HerokuAppName)
-		found := false
-		if lerr == nil {
-			for _, d := range existing {
-				if d.URL == drainURL {
-					drain, found = d, true
-					break
-				}
-			}
-		}
-		if !found {
-			return fmt.Errorf("adding log drain to %q: %v", app.HerokuAppName, err)
-		}
+		return err
 	}
 	app.DrainId, app.DrainToken = drain.ID, drain.Token
 	if err := db.Create(app).Error; err != nil {
@@ -91,6 +76,51 @@ func Enroll(parent context.Context, db *gorm.DB, app *models.Application, baseUR
 		return fmt.Errorf("saving app: %v", err)
 	}
 	return nil
+}
+
+// DrainURL is the log drain endpoint for an app on this deployment.
+func DrainURL(baseURL, app string) string {
+	return fmt.Sprintf("%s/drain/%s", strings.TrimRight(baseURL, "/"), app)
+}
+
+// installDrain adds a drain to url, or adopts an existing one: a drain left
+// over from an earlier enrolment makes Heroku reject a duplicate URL.
+func installDrain(ctx context.Context, hc herokuclient.Client, app, url string) (herokuclient.Drain, error) {
+	drain, err := hc.CreateDrain(ctx, app, url)
+	if err == nil {
+		return drain, nil
+	}
+	if existing, lerr := hc.ListDrains(ctx, app); lerr == nil {
+		for _, d := range existing {
+			if d.URL == url {
+				return d, nil
+			}
+		}
+	}
+	return herokuclient.Drain{}, fmt.Errorf("adding log drain to %q: %v", app, err)
+}
+
+// RepairDrain makes sure the app's log drain exists and points at baseURL,
+// e.g. after the drain was deleted by hand or AutoSleep moved to a new
+// domain. A stale drain AutoSleep created earlier is removed.
+func RepairDrain(ctx context.Context, db *gorm.DB, app *models.Application, baseURL string) error {
+	hc, err := client(app)
+	if err != nil {
+		return err
+	}
+	want := DrainURL(baseURL, app.HerokuAppName)
+	drain, err := installDrain(ctx, hc, app.HerokuAppName, want)
+	if err != nil {
+		return err
+	}
+	if app.DrainId != "" && app.DrainId != drain.ID {
+		if old, err := hc.DrainInfo(ctx, app.HerokuAppName, app.DrainId); err == nil && strings.HasSuffix(old.URL, "/drain/"+app.HerokuAppName) {
+			hc.DeleteDrain(ctx, app.HerokuAppName, app.DrainId)
+		}
+	}
+	app.DrainId, app.DrainToken = drain.ID, drain.Token
+	return db.Model(&models.Application{}).Where("id = ?", app.ID).
+		Updates(map[string]interface{}{"drain_id": drain.ID, "drain_token": drain.Token}).Error
 }
 
 // AutoEnrollPatterns reads AUTO_ENROLL, a comma separated list of app name
@@ -168,6 +198,11 @@ func AutoEnroll(ctx context.Context, db *gorm.DB) {
 			}
 			known[a.Name] = true
 			log.Printf("auto-enroll: now managing %s", a.Name)
+			if WakePageByDefault() {
+				if err := EnableWakePageOnEnroll(ctx, db, app, base); err != nil {
+					log.Printf("auto-enroll: %s: waking page not enabled: %v", a.Name, err)
+				}
+			}
 			ScheduleNextCheck(app)
 		}
 	}

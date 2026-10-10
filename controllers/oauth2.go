@@ -67,21 +67,27 @@ func saveAccountInfo(c *gin.Context, token *oauth2.Token) (models.Account, error
 	if err != nil {
 		return models.Account{}, err
 	}
-	account := models.Account{
+	return upsertAccount(models.Account{
 		Email:        email,
 		Name:         name,
+		AuthType:     models.AuthOAuth,
 		AccessToken:  models.Encrypt(token.AccessToken),
 		RefreshToken: models.Encrypt(token.RefreshToken),
 		ExpiredAt:    models.TokenExpiry(token),
-	}
-	err = models.DB.Clauses(clause.OnConflict{
+	})
+}
+
+// upsertAccount saves an account keyed on email, replacing the credentials
+// of an existing one (so reconnecting fixes a revoked token).
+func upsertAccount(account models.Account) (models.Account, error) {
+	err := models.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "email"}},
-		DoUpdates: clause.AssignmentColumns([]string{"access_token", "refresh_token", "expired_at", "name"}),
-	}).Create(&account).Error // upsert record on email
+		DoUpdates: clause.AssignmentColumns([]string{"access_token", "refresh_token", "expired_at", "name", "auth_type"}),
+	}).Create(&account).Error
 	if err != nil {
 		return account, err
 	}
 	// On conflict the returned ID may be empty; read it back.
-	err = models.DB.Where("email = ?", email).First(&account).Error
+	err = models.DB.Where("email = ?", account.Email).First(&account).Error
 	return account, err
 }

@@ -49,6 +49,8 @@ type CreateApplicationInput struct {
 	NightMode     bool    `json:"night_mode"`
 	WebOnly       bool    `json:"web_only"`
 	AccountId     uint    `json:"account_id"`
+	// WakePage defaults to on (see WAKE_PAGE_DEFAULT).
+	WakePage *bool `json:"wake_page"`
 }
 
 // Limits keep users from configuring an app that flaps or never sleeps.
@@ -110,7 +112,14 @@ func CreateApp(c *gin.Context) {
 	}
 	sleeper.OptIn(models.DB, app.HerokuAppName)
 	sleeper.ScheduleNextCheck(&app)
-	c.JSON(http.StatusOK, gin.H{"data": viewOf(&app)})
+	resp := gin.H{}
+	if wantPage := sleeper.WakePageByDefault(); (input.WakePage == nil && wantPage) || (input.WakePage != nil && *input.WakePage) {
+		if err := sleeper.EnableWakePageOnEnroll(c.Request.Context(), models.DB, &app, BaseURL(c)); err != nil {
+			resp["warning"] = "App added, but the waking page wasn't enabled: " + err.Error()
+		}
+	}
+	resp["data"] = viewOf(&app)
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateApplicationInput uses pointers so omitted fields are left alone.
@@ -162,7 +171,7 @@ func UpdateApp(c *gin.Context) {
 	if in.WakePage != nil && *in.WakePage != app.WakePage {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), herokuTimeout)
 		defer cancel()
-		if err := setWakePage(ctx, app, BaseURL(c), *in.WakePage); err != nil {
+		if err := sleeper.SetWakePage(ctx, app, BaseURL(c), *in.WakePage); err != nil {
 			jsonError(c, http.StatusBadGateway, err.Error())
 			return
 		}
@@ -295,7 +304,7 @@ func DeleteApp(c *gin.Context) {
 		}
 	}
 	if app.WakePage {
-		setWakePage(ctx, app, BaseURL(c), false)
+		sleeper.SetWakePage(ctx, app, BaseURL(c), false)
 	}
 	if app.DrainId != "" {
 		token, err := app.GetToken()

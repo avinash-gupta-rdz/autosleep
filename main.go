@@ -3,6 +3,7 @@ package main
 import (
 	"autosleep/constants"
 	"autosleep/controllers"
+	"autosleep/demo"
 	"autosleep/metrics"
 	"autosleep/middleware"
 	"autosleep/models"
@@ -25,10 +26,19 @@ import (
 )
 
 func main() {
+	demoMode := demo.Enabled()
+	if demoMode {
+		demo.Defaults(port())
+	}
 	checkConfig()
-	models.ConnectDataBase()
-	models.RedisConn()
+	if demoMode {
+		demo.Setup()
+	} else {
+		models.ConnectDataBase()
+		models.RedisConn()
+	}
 	sleeper.Checks = workers.Queue{Pool: models.REDIS}
+	connectEnvAPIKey()
 
 	concurrency := 10
 	if n, err := strconv.Atoi(os.Getenv("WORKER_CONCURRENCY")); err == nil && n > 0 {
@@ -45,6 +55,17 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
+	if demoMode {
+		go func() {
+			base := sleeper.PublicURL()
+			if base == "" {
+				base = "http://localhost:" + port()
+			}
+			demo.Seed(base)
+			demo.Traffic(port())
+		}()
+	}
 
 	// Heroku sends SIGTERM on restarts and deploys.
 	signalChan := make(chan os.Signal, 1)
@@ -76,6 +97,23 @@ func checkConfig() {
 	}
 	sleeper.Night = night
 	savings.LoadPriceOverrides()
+}
+
+// connectEnvAPIKey connects the account for HEROKU_API_KEY at startup, so a
+// fresh Deploy-button install can list and enrol apps right away.
+func connectEnvAPIKey() {
+	key := os.Getenv("HEROKU_API_KEY")
+	if key == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	act, err := controllers.ConnectAPIKey(ctx, key)
+	if err != nil {
+		log.Printf("HEROKU_API_KEY: %v", err)
+		return
+	}
+	log.Printf("Connected Heroku account %s from HEROKU_API_KEY", act.Email)
 }
 
 func port() string {
@@ -143,9 +181,14 @@ func router() *gin.Engine {
 	authorized.POST("/app/:app_id/pause", controllers.PauseApp)
 	authorized.POST("/app/:app_id/resume", controllers.ResumeApp)
 	authorized.GET("/app/:app_id/history", controllers.AppHistory)
+	authorized.GET("/app/:app_id/diagnose", controllers.DiagnoseApp)
+	authorized.POST("/app/:app_id/repair-drain", controllers.RepairDrain)
+	authorized.GET("/setup", controllers.Setup)
 	authorized.GET("/app/:app_id/savings", controllers.AppSavings)
 	authorized.GET("/savings", controllers.AllSavings)
 	authorized.GET("/accounts", controllers.ListAccounts)
+	authorized.POST("/accounts", controllers.CreateAccount)
+	authorized.DELETE("/accounts/:account_id", controllers.DeleteAccount)
 	authorized.GET("/accounts/:account_id/apps", controllers.AccountApps)
 	return r
 }

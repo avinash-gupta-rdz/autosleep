@@ -33,6 +33,9 @@ type Application struct {
 	WakePage         bool       `gorm:"not null;default:false" json:"wake_page"`
 	LastError        string     `gorm:"size:1024;not null;default:''" json:"last_error"`
 	LastErrorAt      *time.Time `json:"last_error_at"`
+	// LastDrainAt is when Heroku last delivered any log batch for the app
+	// (updated at most once a minute). Nil means the drain never worked.
+	LastDrainAt *time.Time `json:"last_drain_at"`
 
 	AccountId *uint   `json:"account_id"`
 	Account   Account `gorm:"foreignKey:AccountId" json:"-"`

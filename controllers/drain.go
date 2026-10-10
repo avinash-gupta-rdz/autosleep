@@ -35,11 +35,16 @@ func ProcessDrain(c *gin.Context) {
 		return
 	}
 	summary := activity.Analyze(body)
-	if !summary.Traffic {
+	name := c.Param("app_id")
+	now := sleeper.Now()
+	// Most batches are app logs, not traffic. Skip the database for those,
+	// except for a once-a-minute "logs are arriving" heartbeat.
+	heartbeat := drainSeen.due(name, now)
+	if !summary.Traffic && !heartbeat {
 		c.JSON(http.StatusOK, gin.H{"status": false})
 		return
 	}
-	app, err := sleeper.Load(models.DB, c.Param("app_id"))
+	app, err := sleeper.Load(models.DB, name)
 	if err != nil {
 		metrics.DrainRejected.WithLabelValues("unknown_app").Inc()
 		jsonError(c, http.StatusNotFound, "unknown app")
@@ -55,8 +60,14 @@ func ProcessDrain(c *gin.Context) {
 			return
 		}
 	}
+	if heartbeat {
+		models.DB.Model(&models.Application{}).Where("id = ?", app.ID).Update("last_drain_at", now)
+	}
+	if !summary.Traffic {
+		c.JSON(http.StatusOK, gin.H{"status": false})
+		return
+	}
 
-	now := sleeper.Now()
 	models.DB.Model(&models.Application{}).
 		Where("id = ? AND recent_activity_at < ?", app.ID, now.Add(-activityResolution)).
 		Update("recent_activity_at", now)
@@ -90,6 +101,32 @@ func background(f func(ctx context.Context)) {
 		defer Pending.Done()
 		run()
 	}()
+}
+
+// drainHeartbeat is how often last_drain_at is refreshed per app.
+const drainHeartbeat = time.Minute
+
+// drainSeen throttles last_drain_at writes. Entries for names that aren't
+// apps are bounded by resetting the map when it grows too large.
+var drainSeen = &throttle{every: drainHeartbeat, last: map[string]time.Time{}}
+
+type throttle struct {
+	mu    sync.Mutex
+	every time.Duration
+	last  map[string]time.Time
+}
+
+func (t *throttle) due(key string, now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if last, ok := t.last[key]; ok && now.Sub(last) < t.every && !now.Before(last) {
+		return false
+	}
+	if len(t.last) > 10000 {
+		t.last = map[string]time.Time{}
+	}
+	t.last[key] = now
+	return true
 }
 
 // repairInterval limits repair attempts, since every request to a broken

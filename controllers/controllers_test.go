@@ -34,6 +34,7 @@ func setup(t *testing.T) *env {
 	e := &env{t: t, db: testutil.NewDB(t), fake: (&testutil.FakeHeroku{}).Install(t), sched: &testutil.Scheduler{}}
 	prevChecks, prevNow, prevBG := sleeper.Checks, sleeper.Now, WakeInBackground
 	sleeper.Checks, sleeper.Now, WakeInBackground = e.sched, func() time.Time { return t0 }, false
+	drainSeen.last = map[string]time.Time{}
 	t.Cleanup(func() { sleeper.Checks, sleeper.Now, WakeInBackground = prevChecks, prevNow, prevBG })
 
 	r := gin.New()
@@ -51,6 +52,13 @@ func setup(t *testing.T) *env {
 	r.GET("/app/:app_id/history", AppHistory)
 	r.GET("/app/:app_id/savings", AppSavings)
 	r.GET("/savings", AllSavings)
+	r.GET("/app/:app_id/diagnose", DiagnoseApp)
+	r.POST("/app/:app_id/repair-drain", RepairDrain)
+	r.GET("/setup", Setup)
+	r.GET("/accounts", ListAccounts)
+	r.POST("/accounts", CreateAccount)
+	r.DELETE("/accounts/:account_id", DeleteAccount)
+	r.GET("/accounts/:account_id/apps", AccountApps)
 	e.r = r
 	return e
 }
@@ -293,21 +301,34 @@ func TestPatchValidatesAndUpdates(t *testing.T) {
 
 func TestWakePageConfigVar(t *testing.T) {
 	e := setup(t)
+	// New apps get the waking page by default.
 	e.create("wp", web1)
-	if code, b := e.do("PATCH", "/app/wp", map[string]interface{}{"wake_page": true}); code != 200 {
-		t.Fatalf("enable: %d %v", code, b)
-	}
-	if got := e.fake.ConfigVars["wp"]["ERROR_PAGE_URL"]; got != "https://autosleep.example.com/waking/wp" {
+	if got := e.fake.ConfigVars["wp"]["ERROR_PAGE_URL"]; got != "https://autosleep.example.com/waking/wp" || !e.app("wp").WakePage {
 		t.Fatalf("ERROR_PAGE_URL = %q", got)
 	}
 	e.do("PATCH", "/app/wp", map[string]interface{}{"wake_page": false})
 	if _, ok := e.fake.ConfigVars["wp"]["ERROR_PAGE_URL"]; ok {
 		t.Fatal("ERROR_PAGE_URL not removed")
 	}
+	if code, b := e.do("PATCH", "/app/wp", map[string]interface{}{"wake_page": true}); code != 200 || e.fake.ConfigVars["wp"]["ERROR_PAGE_URL"] == "" {
+		t.Fatalf("re-enable: %d %v", code, b)
+	}
 
-	// Never clobber a user's own error page.
-	e.create("custom", web1)
+	// Opting out at creation leaves the config untouched.
+	e.fake.Formations["plain"] = []herokuclient.Formation{web1}
+	e.do("POST", "/app", map[string]interface{}{"heroku_app_name": "plain", "heroku_api_key": "k", "wake_page": false})
+	if _, ok := e.fake.ConfigVars["plain"]["ERROR_PAGE_URL"]; ok || e.app("plain").WakePage {
+		t.Fatal("wake_page=false was ignored")
+	}
+
+	// Never clobber a user's own error page: enrolment still succeeds, with
+	// a warning, and enabling it later is refused.
 	e.fake.ConfigVars["custom"] = map[string]string{"ERROR_PAGE_URL": "https://cdn.example.com/oops.html"}
+	e.fake.Formations["custom"] = []herokuclient.Formation{web1}
+	code, out := e.do("POST", "/app", map[string]interface{}{"heroku_app_name": "custom", "heroku_api_key": "k"})
+	if code != 200 || out["warning"] == nil || e.app("custom").WakePage {
+		t.Fatalf("create with custom page: %d %v", code, out)
+	}
 	if code, _ := e.do("PATCH", "/app/custom", map[string]interface{}{"wake_page": true}); code != http.StatusBadGateway {
 		t.Fatalf("overwrote custom error page: %d", code)
 	}
