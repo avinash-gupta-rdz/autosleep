@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
 ### Added
 - Demo mode (`DEMO_MODE=true`): try the dashboard with an in-memory database and Redis and a simulated Heroku account, no setup needed.
 - First-run "Get started" checklist on the dashboard (`GET /setup`).
@@ -40,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - OAuth `state` is a one-time random value in a short-lived cookie instead of the static `STATE_TOKEN`.
 - State-changing requests from other sites are rejected; the IP allowlist no longer trusts spoofed `X-Forwarded-For` entries on Heroku.
 - The OAuth callback and waking page are rate limited per client IP.
+- `filippo.io/edwards25519` 1.1.1 (GHSA-fw7p-63qq-7hpr; the affected function is not used by AutoSleep).
 
 ### Removed
 - `STATE_TOKEN` env var. It is no longer read.
+
+[Unreleased]: https://github.com/avinash-gupta-rdz/autosleep/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/avinash-gupta-rdz/autosleep/releases/tag/v0.2.0
