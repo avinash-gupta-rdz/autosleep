@@ -592,6 +592,9 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     var html = s.alerts_enabled
       ? '<span>Alerts: on · <button type="button" class="btn" id="test-alert">Send test alert</button></span>'
       : '<span>Alerts: off (set <code>ALERT_WEBHOOK_URL</code> to a Slack or Discord webhook)</span>';
+    html += '<span>AutoSleep v' + esc(s.version) + (s.update_available
+      ? ' · <b style="color:var(--accent-text)">' + esc(s.latest_version) + ' is available</b> · <a href="' + esc(s.upgrade_url) + '" target="_blank" rel="noopener">How to upgrade</a>'
+      : '') + '</span>';
     html += '<a href="https://github.com/avinash-gupta-rdz/autosleep#readme" target="_blank" rel="noopener">Docs</a>';
     $('#foot').innerHTML = html;
     var b = $('#test-alert');

@@ -5,6 +5,7 @@ import (
 	"autosleep/constants"
 	"autosleep/models"
 	"autosleep/sleeper"
+	"autosleep/version"
 	"net/http"
 	"strings"
 
@@ -22,6 +23,10 @@ type SetupStatus struct {
 	PublicURL       string   `json:"public_url"`
 	SelfHostSet     bool     `json:"self_host_set"`
 	AlertsEnabled   bool     `json:"alerts_enabled"`
+	Version         string   `json:"version"`
+	LatestVersion   string   `json:"latest_version,omitempty"`
+	UpdateAvailable bool     `json:"update_available"`
+	UpgradeURL      string   `json:"upgrade_url"`
 	AutoEnroll      []string `json:"auto_enroll,omitempty"`
 	Warnings        []string `json:"warnings,omitempty"`
 }
@@ -34,6 +39,10 @@ func Setup(c *gin.Context) {
 		PublicURL:       base,
 		SelfHostSet:     sleeper.SelfHostURL() != "",
 		AlertsEnabled:   alerts.Enabled(),
+		Version:         version.Current,
+		LatestVersion:   version.Latest(),
+		UpdateAvailable: version.UpdateAvailable(),
+		UpgradeURL:      "https://github.com/" + version.Repo + "/blob/master/UPGRADING.md",
 		AutoEnroll:      sleeper.AutoEnrollPatterns(),
 	}
 	models.DB.Model(&models.Account{}).Count(&s.Accounts)

@@ -10,6 +10,7 @@ import (
 	"autosleep/savings"
 	"autosleep/schedule"
 	"autosleep/sleeper"
+	"autosleep/version"
 	"autosleep/web"
 	"autosleep/workers"
 	"context"
@@ -46,7 +47,10 @@ func main() {
 	}
 	pool := workers.NewPool(models.REDIS, uint(concurrency))
 	pool.Start()
-	log.Printf("Worker started (night window %s)", sleeper.Night)
+	log.Printf("AutoSleep %s; worker started (night window %s)", version.Current, sleeper.Night)
+	if !demoMode {
+		go version.Watch(context.Background())
+	}
 
 	srv := &http.Server{Addr: ":" + port(), Handler: router(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
