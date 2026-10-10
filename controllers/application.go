@@ -5,6 +5,7 @@ import (
 	"autosleep/herokuclient"
 	"autosleep/models"
 	"autosleep/savings"
+	"autosleep/schedule"
 	"autosleep/sleeper"
 	"context"
 	"fmt"
@@ -51,6 +52,38 @@ type CreateApplicationInput struct {
 	AccountId     uint    `json:"account_id"`
 	// WakePage defaults to on (see WAKE_PAGE_DEFAULT).
 	WakePage *bool `json:"wake_page"`
+	OfficeHoursInput
+}
+
+// OfficeHoursInput sets the keep-awake window, e.g. awake_days "mon-fri",
+// awake_from "09:00", awake_to "18:00", awake_tz "Europe/Berlin". An empty
+// awake_days removes it.
+type OfficeHoursInput struct {
+	AwakeDays *string `json:"awake_days"`
+	AwakeFrom string  `json:"awake_from"`
+	AwakeTo   string  `json:"awake_to"`
+	AwakeTZ   string  `json:"awake_tz"`
+}
+
+// officeHours validates the input and returns the columns to store, or nil
+// when the input doesn't mention office hours.
+func (in OfficeHoursInput) officeHours() (map[string]interface{}, error) {
+	if in.AwakeDays == nil {
+		return nil, nil
+	}
+	days := strings.TrimSpace(*in.AwakeDays)
+	if days == "" {
+		return map[string]interface{}{"awake_days": "", "awake_from": "", "awake_to": "", "awake_tz": ""}, nil
+	}
+	tz := in.AwakeTZ
+	if tz == "" {
+		tz = sleeper.Night.Location.String()
+	}
+	w, err := schedule.ParseWeekly(days, in.AwakeFrom, in.AwakeTo, tz)
+	if err != nil {
+		return nil, fmt.Errorf("office hours: %w", err)
+	}
+	return map[string]interface{}{"awake_days": days, "awake_from": in.AwakeFrom, "awake_to": in.AwakeTo, "awake_tz": w.Location.String()}, nil
 }
 
 // Limits keep users from configuring an app that flaps or never sleeps.
@@ -84,6 +117,11 @@ func CreateApp(c *gin.Context) {
 		jsonError(c, http.StatusBadRequest, msg)
 		return
 	}
+	hours, err := input.officeHours()
+	if err != nil {
+		jsonError(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	var existing int64
 	models.DB.Model(&models.Application{}).Where("heroku_app_name = ?", input.HerokuAppName).Count(&existing)
 	if existing > 0 {
@@ -95,6 +133,10 @@ func CreateApp(c *gin.Context) {
 		HerokuAppName: input.HerokuAppName, CheckInterval: input.CheckInterval, IdealTime: input.IdealTime,
 		NightMode: input.NightMode, ManualMode: input.ManualMode, WebOnly: input.WebOnly,
 		RecentActivityAt: sleeper.Now(), CurrentStatus: true,
+	}
+	if hours != nil {
+		app.AwakeDays, app.AwakeFrom = hours["awake_days"].(string), hours["awake_from"].(string)
+		app.AwakeTo, app.AwakeTZ = hours["awake_to"].(string), hours["awake_tz"].(string)
 	}
 	if input.AccountId != 0 {
 		if err := models.DB.First(&app.Account, input.AccountId).Error; err != nil {
@@ -132,6 +174,7 @@ type UpdateApplicationInput struct {
 	Paused        *bool    `json:"paused"`
 	WakePage      *bool    `json:"wake_page"`
 	HerokuApiKey  *string  `json:"heroku_api_key"`
+	OfficeHoursInput
 }
 
 func UpdateApp(c *gin.Context) {
@@ -156,6 +199,14 @@ func UpdateApp(c *gin.Context) {
 		return
 	}
 	updates := map[string]interface{}{"ideal_time": ideal, "check_interval": interval}
+	hours, err := in.officeHours()
+	if err != nil {
+		jsonError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	for k, v := range hours {
+		updates[k] = v
+	}
 	if in.ManualMode != nil {
 		updates["manual_mode"] = *in.ManualMode
 	}

@@ -66,6 +66,9 @@ func Reconcile(ctx context.Context, db *gorm.DB, q Enqueuer) {
 			backfillDrainToken(ctx, db, app)
 		}
 		if !app.CurrentStatus {
+			if woke, err := sleeper.WakeForOfficeHours(ctx, db, app, now); woke || err != nil {
+				continue
+			}
 			if probeDue(app.ID, now) {
 				forgetIfDeleted(ctx, db, app)
 			}
@@ -75,7 +78,8 @@ func Reconcile(ctx context.Context, db *gorm.DB, q Enqueuer) {
 			continue
 		}
 		deadline := app.RecentActivityAt.Add(app.IdleDuration() + overdueSlack*app.CheckEvery())
-		overdue := now.After(deadline) && (!app.NightMode || sleeper.Night.Contains(now))
+		_, office := sleeper.KeptAwake(app, now)
+		overdue := now.After(deadline) && !office && (!app.NightMode || sleeper.Night.Contains(now))
 		var err error
 		if overdue {
 			// The unique-job lock may be stale; force a check.

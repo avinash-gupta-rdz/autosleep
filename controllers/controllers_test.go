@@ -401,3 +401,22 @@ func TestRemovedAppIsOptedOutOfAutoEnroll(t *testing.T) {
 		t.Fatal("manual re-add did not clear opt-out")
 	}
 }
+
+func TestOfficeHoursAPI(t *testing.T) {
+	e := setup(t)
+	e.fake.Formations["oh"] = []herokuclient.Formation{web1}
+	body := map[string]interface{}{"heroku_app_name": "oh", "heroku_api_key": "k", "awake_days": "mon-fri", "awake_from": "09:00", "awake_to": "18:00", "awake_tz": "UTC"}
+	code, out := e.do("POST", "/app", body)
+	if code != 200 {
+		t.Fatalf("create: %d %v", code, out)
+	}
+	if d := out["data"].(map[string]interface{}); d["awake_days"] != "mon-fri" || d["awake_until"] == nil {
+		t.Fatalf("office hours not applied (t0 is a Wednesday 10:00): %v", d)
+	}
+	if code, _ := e.do("PATCH", "/app/oh", map[string]interface{}{"awake_days": "someday", "awake_from": "09:00", "awake_to": "18:00"}); code != http.StatusBadRequest {
+		t.Fatalf("bad days accepted: %d", code)
+	}
+	if code, _ := e.do("PATCH", "/app/oh", map[string]interface{}{"awake_days": ""}); code != 200 || e.app("oh").AwakeDays != "" {
+		t.Fatalf("clear office hours: %d %+v", code, e.app("oh"))
+	}
+}

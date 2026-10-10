@@ -34,8 +34,10 @@ func jsonError(c *gin.Context, status int, msg string) {
 // show. Secrets are never serialised (see json:"-" tags on the model).
 type AppView struct {
 	models.Application
-	Status       string     `json:"status"` // awake, asleep or paused
-	NextSleepAt  *time.Time `json:"next_sleep_at,omitempty"`
+	Status      string     `json:"status"` // awake, asleep or paused
+	NextSleepAt *time.Time `json:"next_sleep_at,omitempty"`
+	// AwakeUntil is set while office hours keep the app awake.
+	AwakeUntil   *time.Time `json:"awake_until,omitempty"`
 	AccountEmail string     `json:"account_email,omitempty"`
 }
 
@@ -47,8 +49,12 @@ func viewOf(app *models.Application) AppView {
 	case !app.CurrentStatus:
 		v.Status = "asleep"
 	}
-	if at := sleeper.NextSleepAt(app, sleeper.Now()); !at.IsZero() {
+	now := sleeper.Now()
+	if at := sleeper.NextSleepAt(app, now); !at.IsZero() {
 		v.NextSleepAt = &at
+	}
+	if end, ok := sleeper.KeptAwake(app, now); ok {
+		v.AwakeUntil = &end
 	}
 	return v
 }

@@ -28,7 +28,20 @@ const (
 	ReasonRemoved = "removed"
 	ReasonResumed = "resumed"
 	ReasonRepair  = "repair"
+	// ReasonSchedule is a wake at the start of the app's office hours.
+	ReasonSchedule = "schedule"
 )
+
+// KeptAwake reports whether office hours keep the app awake at now, and
+// until when.
+func KeptAwake(app *models.Application, now time.Time) (time.Time, bool) {
+	w, ok := app.OfficeHours()
+	if !ok {
+		return time.Time{}, false
+	}
+	_, end, in := w.Current(now)
+	return end, in
+}
 
 // Scheduler queues the next sleep check for an app.
 type Scheduler interface {
@@ -251,6 +264,9 @@ func NextCheckIn(app *models.Application, now time.Time) time.Duration {
 		return every
 	}
 	remaining := app.RecentActivityAt.Add(app.IdleDuration()).Sub(now)
+	if end, ok := KeptAwake(app, now); ok {
+		remaining = end.Sub(now)
+	}
 	if remaining < MinCheckDelay {
 		remaining = MinCheckDelay
 	}
@@ -269,6 +285,9 @@ func NextSleepAt(app *models.Application, now time.Time) time.Time {
 	at := app.RecentActivityAt.Add(app.IdleDuration())
 	if at.Before(now) {
 		at = now
+	}
+	if end, ok := KeptAwake(app, at); ok {
+		at = end
 	}
 	if app.NightMode {
 		// Step forward until we're inside the night window (at most a day).
@@ -314,7 +333,8 @@ func Check(ctx context.Context, db *gorm.DB, name string) error {
 	}
 	now := Now()
 	idle := now.Sub(app.RecentActivityAt) >= app.IdleDuration()
-	if idle && (!app.NightMode || Night.Contains(now)) {
+	_, office := KeptAwake(app, now)
+	if idle && !office && (!app.NightMode || Night.Contains(now)) {
 		slept, err := Sleep(ctx, db, app, ReasonIdle, false)
 		if slept {
 			return nil
@@ -336,6 +356,30 @@ func Check(ctx context.Context, db *gorm.DB, name string) error {
 	}
 	ScheduleNextCheck(app)
 	return nil
+}
+
+// WakeForOfficeHours wakes an asleep app whose office hours have started
+// since it went to sleep. An app put to sleep by hand during office hours
+// stays asleep. It reports whether the app was woken.
+func WakeForOfficeHours(ctx context.Context, db *gorm.DB, app *models.Application, now time.Time) (bool, error) {
+	if app.CurrentStatus || app.Paused {
+		return false, nil
+	}
+	w, ok := app.OfficeHours()
+	if !ok {
+		return false, nil
+	}
+	start, _, in := w.Current(now)
+	if !in {
+		return false, nil
+	}
+	var last models.AppHistory
+	err := db.Where("application_id = ? AND action = ?", app.ID, models.ActionSleep).
+		Order("performed_at desc").First(&last).Error
+	if err == nil && !last.PerformedAt.Before(start) {
+		return false, nil
+	}
+	return Wake(ctx, db, app, ReasonSchedule)
 }
 
 // Forget deletes an app and its history from AutoSleep's database. It does

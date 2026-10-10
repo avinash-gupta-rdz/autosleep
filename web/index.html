@@ -138,7 +138,7 @@ dialog::backdrop { background: rgba(10,10,20,.45); }
 .field > label { display: block; font-weight: 500; margin-bottom: 5px; font-size: 13px; }
 .hint { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .hint code, .dlg-body code { background: var(--surface-2); border: 1px solid var(--border); padding: 0 5px; border-radius: 4px; font-size: 12px; word-break: break-all; }
-input[type=text], input[type=password], input[type=number], input[type=search], select {
+input[type=text], input[type=password], input[type=number], input[type=search], input[type=time], select {
   width: 100%; height: 36px; padding: 0 10px; border-radius: var(--radius); border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--text); font: inherit;
 }
@@ -190,6 +190,10 @@ details.adv[open] summary { margin-bottom: 4px; }
 .connect-box ol { margin: 6px 0 12px; padding-left: 18px; color: var(--muted); font-size: 13px; }
 .connect-row { display: flex; gap: 8px; }
 .connect-row input { flex: 1; }
+.days { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.days label { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 12.5px; cursor: pointer; }
+.days input { accent-color: var(--accent); margin: 0; }
+.oh-fields { padding: 0 0 10px 28px; }
 .cta { text-align: center; padding: 24px 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
 .cta p { color: var(--muted); margin: 0 0 14px; }
 
@@ -353,6 +357,17 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
       <label class="toggle"><input type="checkbox" id="set-night"><div><b>Night mode</b><span>Only sleep during the night window (set by the server's NIGHT_MODE_* settings)</span></div></label>
       <label class="toggle"><input type="checkbox" id="set-web"><div><b>Web only</b><span>Only stop web dynos; workers keep running</span></div></label>
       <label class="toggle"><input type="checkbox" id="set-manual"><div><b>Manual wake</b><span>Don't wake on traffic; wake only from this dashboard or the API</span></div></label>
+      <label class="toggle"><input type="checkbox" id="set-oh"><div><b>Office hours</b><span>Keep the app awake during working hours and wake it when they start. Outside them it sleeps when idle and wakes on the next visit, as usual.</span></div></label>
+      <div class="oh-fields" id="oh-fields" hidden>
+        <div class="days" role="group" aria-label="Days">
+          <label><input type="checkbox" data-day="mon">Mon</label><label><input type="checkbox" data-day="tue">Tue</label><label><input type="checkbox" data-day="wed">Wed</label><label><input type="checkbox" data-day="thu">Thu</label><label><input type="checkbox" data-day="fri">Fri</label><label><input type="checkbox" data-day="sat">Sat</label><label><input type="checkbox" data-day="sun">Sun</label>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="oh-from">From</label><input type="time" id="oh-from" value="09:00"></div>
+          <div class="field"><label for="oh-to">To</label><input type="time" id="oh-to" value="18:00"></div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label for="oh-tz">Time zone</label><input type="text" id="oh-tz" autocomplete="off" spellcheck="false" placeholder="Europe/Berlin"></div>
+      </div>
       <label class="toggle"><input type="checkbox" id="set-wake"><div><b>Waking page</b><span>Show visitors a friendly 'waking up' page instead of Heroku's error page. Sets ERROR_PAGE_URL on the app, which restarts it once.</span></div></label>
       <div id="set-err"></div>
     </div>
@@ -610,8 +625,9 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
       when = t ? relSpan(t, 'since') : 'Asleep';
     } else {
       pill = '<span class="pill awake"><span class="dot"></span>Awake</span>';
-      var n = parseTime(a.next_sleep_at);
-      if (n) when = relSpan(n, 'sleeps');
+      var n = parseTime(a.next_sleep_at), until = parseTime(a.awake_until);
+      if (until) when = 'Office hours until ' + new Date(until).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      else if (n) when = relSpan(n, 'sleeps');
       else if (a.night_mode) when = 'Waiting for the night window';
       else when = 'Awake';
     }
@@ -631,6 +647,7 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     if (a.web_only) badges.push('Web only');
     if (a.manual_mode) badges.push('Manual wake');
     if (a.wake_page) badges.push('Waking page');
+    if (a.awake_days) badges.push('Awake ' + daysText(a.awake_days) + ' ' + a.awake_from + '–' + a.awake_to);
     var per = state.summary && state.summary.per_app && state.summary.per_app[name];
     var errT = parseTime(a.last_error_at);
     var html = '<tr>';
@@ -977,6 +994,26 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
   $('#key-submit').addEventListener('click', submitKey);
 
   // ---------- settings ----------
+  var DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  // expandDays turns "mon-fri" or "mon,wed" into a list of day names.
+  function expandDays(spec) {
+    var out = [];
+    String(spec || '').toLowerCase().split(',').forEach(function (part) {
+      part = part.trim(); if (!part) return;
+      var r = part.split('-'), a = DAY_ORDER.indexOf(r[0].slice(0, 3)), b = r[1] ? DAY_ORDER.indexOf(r[1].slice(0, 3)) : a;
+      if (a < 0 || b < 0) return;
+      for (var i = a; ; i = (i + 1) % 7) { if (out.indexOf(DAY_ORDER[i]) === -1) out.push(DAY_ORDER[i]); if (i === b) break; }
+    });
+    return DAY_ORDER.filter(function (d) { return out.indexOf(d) !== -1; });
+  }
+  function daysText(spec) {
+    var on = expandDays(spec), s = on.join(',');
+    if (s === 'mon,tue,wed,thu,fri') return 'Mon–Fri';
+    if (s === DAY_ORDER.join(',')) return 'every day';
+    return on.map(function (d) { return d.charAt(0).toUpperCase() + d.slice(1); }).join(', ');
+  }
+  function browserTZ() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } }
+  $('#set-oh').addEventListener('change', function () { $('#oh-fields').hidden = !this.checked; });
   function openSettings(name) {
     var a = findApp(name);
     if (!a) return;
@@ -988,6 +1025,14 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     $('#set-web').checked = !!a.web_only;
     $('#set-manual').checked = !!a.manual_mode;
     $('#set-wake').checked = !!a.wake_page;
+    var days = (a.awake_days || 'mon-fri').toLowerCase();
+    var on = expandDays(days);
+    $$('[data-day]').forEach(function (cb) { cb.checked = on.indexOf(cb.getAttribute('data-day')) !== -1; });
+    $('#set-oh').checked = !!a.awake_days;
+    $('#oh-from').value = a.awake_from || '09:00';
+    $('#oh-to').value = a.awake_to || '18:00';
+    $('#oh-tz').value = a.awake_tz || browserTZ();
+    $('#oh-fields').hidden = !a.awake_days;
     formErr($('#set-err'), '');
     showDialog($('#dlg-settings'));
   }
@@ -1006,6 +1051,16 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     [['night_mode', '#set-night'], ['web_only', '#set-web'], ['manual_mode', '#set-manual'], ['wake_page', '#set-wake']].forEach(function (p) {
       if ($(p[1]).checked !== !!a[p[0]]) patch[p[0]] = $(p[1]).checked;
     });
+    if ($('#set-oh').checked) {
+      var picked = $$('[data-day]').filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.getAttribute('data-day'); });
+      if (!picked.length) return formErr($('#set-err'), 'Choose at least one day for office hours.');
+      var oh = { awake_days: picked.join(','), awake_from: $('#oh-from').value, awake_to: $('#oh-to').value, awake_tz: $('#oh-tz').value.trim() };
+      if (oh.awake_days !== expandDays(a.awake_days || '').join(',') || oh.awake_from !== a.awake_from || oh.awake_to !== a.awake_to || oh.awake_tz !== a.awake_tz) {
+        Object.keys(oh).forEach(function (k) { patch[k] = oh[k]; });
+      }
+    } else if (a.awake_days) {
+      patch.awake_days = '';
+    }
     if (!Object.keys(patch).length) { $('#dlg-settings').close(); toast('No changes to save.'); return; }
     var btn = $('#set-save'), name = a.heroku_app_name;
     btn.disabled = true; btn.textContent = 'Saving…';
@@ -1024,7 +1079,7 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
   });
 
   // ---------- history ----------
-  var REASONS = { idle: 'No traffic for a while', traffic: 'Someone visited the app', manual: 'From the dashboard or API', removed: 'App removed from AutoSleep', repair: 'Restored dynos that had stopped unexpectedly', resumed: 'AutoSleep resumed' };
+  var REASONS = { schedule: 'Office hours started', idle: 'No traffic for a while', traffic: 'Someone visited the app', manual: 'From the dashboard or API', removed: 'App removed from AutoSleep', repair: 'Restored dynos that had stopped unexpectedly', resumed: 'AutoSleep resumed' };
   // One sleep or wake writes a row per process type; show them as one event.
   function groupEvents(events) {
     var out = [];

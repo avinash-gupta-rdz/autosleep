@@ -1,6 +1,7 @@
 package models
 
 import (
+	"autosleep/schedule"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -36,6 +37,13 @@ type Application struct {
 	// LastDrainAt is when Heroku last delivered any log batch for the app
 	// (updated at most once a minute). Nil means the drain never worked.
 	LastDrainAt *time.Time `json:"last_drain_at"`
+
+	// Office hours: the app is kept awake (and woken at the start) during
+	// this weekly window. AwakeDays is e.g. "mon-fri"; empty means none.
+	AwakeDays string `gorm:"size:64;not null;default:''" json:"awake_days"`
+	AwakeFrom string `gorm:"size:5;not null;default:''" json:"awake_from"`
+	AwakeTo   string `gorm:"size:5;not null;default:''" json:"awake_to"`
+	AwakeTZ   string `gorm:"size:64;not null;default:''" json:"awake_tz"`
 
 	AccountId *uint   `json:"account_id"`
 	Account   Account `gorm:"foreignKey:AccountId" json:"-"`
@@ -75,6 +83,15 @@ func (app *Application) GetToken() (string, error) {
 		return "", ErrNoCredentials
 	}
 	return app.Account.CurrentAccessToken()
+}
+
+// OfficeHours returns the app's keep-awake window, if it has one.
+func (app *Application) OfficeHours() (schedule.Weekly, bool) {
+	if app.AwakeDays == "" {
+		return schedule.Weekly{}, false
+	}
+	w, err := schedule.ParseWeekly(app.AwakeDays, app.AwakeFrom, app.AwakeTo, app.AwakeTZ)
+	return w, err == nil
 }
 
 // IdleDuration is how long the app may go without traffic before it sleeps.
