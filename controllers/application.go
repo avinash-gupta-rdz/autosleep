@@ -400,17 +400,8 @@ func savingsWindow(c *gin.Context) (time.Time, time.Time) {
 	return to.AddDate(0, 0, -days), to
 }
 
-// appSavings computes savings for one app; the window never starts before
-// the app was enrolled, so percentages aren't diluted.
 func appSavings(app *models.Application, from, to time.Time) savings.Report {
-	if app.CreatedAt.After(from) {
-		from = app.CreatedAt
-	}
-	var events []models.AppHistory
-	// Include earlier events so a sleep spanning the window start counts.
-	models.DB.Where("application_id = ? AND performed_at <= ? AND performed_at >= ?", app.ID, to, from.AddDate(0, 0, -90)).
-		Order("performed_at, id").Find(&events)
-	return savings.Compute(events, from, to)
+	return savings.ForApp(models.DB, app, from, to)
 }
 
 func AppSavings(c *gin.Context) {

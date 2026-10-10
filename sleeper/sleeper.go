@@ -6,6 +6,7 @@
 package sleeper
 
 import (
+	"autosleep/alerts"
 	"autosleep/herokuclient"
 	"autosleep/metrics"
 	"autosleep/models"
@@ -125,6 +126,7 @@ func recordError(db *gorm.DB, app *models.Application, err error) {
 	db.Model(&models.Application{}).Where("id = ?", app.ID).
 		Updates(map[string]interface{}{"last_error": msg, "last_error_at": now})
 	metrics.AppErrors.Inc()
+	alerts.AppError(app.HerokuAppName, msg, now)
 	log.Printf("autosleep: %s: %v", app.HerokuAppName, err)
 }
 
@@ -135,6 +137,7 @@ func clearError(db *gorm.DB, app *models.Application) {
 	app.LastError, app.LastErrorAt = "", nil
 	db.Model(&models.Application{}).Where("id = ?", app.ID).
 		Updates(map[string]interface{}{"last_error": "", "last_error_at": nil})
+	alerts.AppRecovered(app.HerokuAppName)
 }
 
 func recordHistory(db *gorm.DB, app *models.Application, action bool, reason string, formations []herokuclient.Formation) {
@@ -342,6 +345,7 @@ func Check(ctx context.Context, db *gorm.DB, name string) error {
 		if herokuclient.IsNotFound(err) {
 			// The Heroku app was deleted (e.g. a closed review app).
 			log.Printf("autosleep: %s: app no longer exists on Heroku, forgetting it", app.HerokuAppName)
+			alerts.AppForgotten(app.HerokuAppName)
 			return Forget(db, app)
 		}
 		if err != nil {

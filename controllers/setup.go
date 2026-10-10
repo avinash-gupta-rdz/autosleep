@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"autosleep/alerts"
 	"autosleep/constants"
 	"autosleep/models"
 	"autosleep/sleeper"
@@ -20,6 +21,7 @@ type SetupStatus struct {
 	SleptOnce       bool     `json:"slept_once"`    // any app was put to sleep
 	PublicURL       string   `json:"public_url"`
 	SelfHostSet     bool     `json:"self_host_set"`
+	AlertsEnabled   bool     `json:"alerts_enabled"`
 	AutoEnroll      []string `json:"auto_enroll,omitempty"`
 	Warnings        []string `json:"warnings,omitempty"`
 }
@@ -31,6 +33,7 @@ func Setup(c *gin.Context) {
 		OAuthConfigured: constants.OauthConfig.ClientID != "" && constants.OauthConfig.ClientSecret != "",
 		PublicURL:       base,
 		SelfHostSet:     sleeper.SelfHostURL() != "",
+		AlertsEnabled:   alerts.Enabled(),
 		AutoEnroll:      sleeper.AutoEnrollPatterns(),
 	}
 	models.DB.Model(&models.Account{}).Count(&s.Accounts)

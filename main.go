@@ -184,6 +184,7 @@ func router() *gin.Engine {
 	authorized.GET("/app/:app_id/diagnose", controllers.DiagnoseApp)
 	authorized.POST("/app/:app_id/repair-drain", controllers.RepairDrain)
 	authorized.GET("/setup", controllers.Setup)
+	authorized.POST("/alerts/test", controllers.TestAlert)
 	authorized.GET("/app/:app_id/savings", controllers.AppSavings)
 	authorized.GET("/savings", controllers.AllSavings)
 	authorized.GET("/accounts", controllers.ListAccounts)

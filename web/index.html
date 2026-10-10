@@ -75,7 +75,7 @@ header.top .wrap { display: flex; align-items: center; justify-content: space-be
 .btn svg { flex: none; }
 
 /* Summary */
-main { padding: 24px 0 64px; }
+main { padding: 24px 0 24px; }
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
 .tile .label { color: var(--muted); font-size: 12.5px; }
@@ -194,6 +194,8 @@ details.adv[open] summary { margin-bottom: 4px; }
 .days label { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 12.5px; cursor: pointer; }
 .days input { accent-color: var(--accent); margin: 0; }
 .oh-fields { padding: 0 0 10px 28px; }
+.foot { color: var(--faint); font-size: 12.5px; padding-top: 12px; padding-bottom: 40px; display: flex; gap: 16px; flex-wrap: wrap; }
+.foot .btn { height: auto; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: 12.5px; }
 .cta { text-align: center; padding: 24px 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
 .cta p { color: var(--muted); margin: 0 0 14px; }
 
@@ -285,6 +287,8 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     <div class="panel" id="apps"><div class="loading">Loading your apps…</div></div>
   </section>
 </main>
+
+<footer class="wrap foot" id="foot"></footer>
 
 <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
 
@@ -581,6 +585,23 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     $('#sum-note').textContent = note;
   }
 
+  // ---------- footer ----------
+  function renderFoot() {
+    var s = state.setup;
+    if (!s) return;
+    var html = s.alerts_enabled
+      ? '<span>Alerts: on · <button type="button" class="btn" id="test-alert">Send test alert</button></span>'
+      : '<span>Alerts: off (set <code>ALERT_WEBHOOK_URL</code> to a Slack or Discord webhook)</span>';
+    html += '<a href="https://github.com/avinash-gupta-rdz/autosleep#readme" target="_blank" rel="noopener">Docs</a>';
+    $('#foot').innerHTML = html;
+    var b = $('#test-alert');
+    if (b) b.onclick = function () {
+      b.disabled = true;
+      api('POST', '/alerts/test').then(function () { toast('Test alert sent. Check your channel.'); }, function (e) { toast(e.message, 'error'); })
+        .then(function () { b.disabled = false; });
+    };
+  }
+
   // ---------- first-run checklist ----------
   function setupDismissed() { try { return localStorage.getItem('autosleep.setupDone') === '1'; } catch (e) { return false; } }
   function renderSetup() {
@@ -701,6 +722,7 @@ table.bd { width: 100%; border-collapse: collapse; font-size: 13px; }
     renderSummary();
     renderSetup();
     renderApps();
+    renderFoot();
     if (fk) {
       var el = $$('[data-fk]').filter(function (e) { return e.getAttribute('data-fk') === fk; })[0];
       if (el && !el.disabled) el.focus();

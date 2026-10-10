@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // HourlyPrice is Heroku's list price in USD per dyno-hour, keyed by the
@@ -205,4 +207,17 @@ func union(ivs []Interval) time.Duration {
 func round(v float64, places int) float64 {
 	p := math.Pow(10, float64(places))
 	return math.Round(v*p) / p
+}
+
+// ForApp computes savings for one app from its stored history. The window
+// never starts before the app was enrolled, so percentages aren't diluted.
+func ForApp(db *gorm.DB, app *models.Application, from, to time.Time) Report {
+	if app.CreatedAt.After(from) {
+		from = app.CreatedAt
+	}
+	var events []models.AppHistory
+	// Include earlier events so a sleep spanning the window start counts.
+	db.Where("application_id = ? AND performed_at <= ? AND performed_at >= ?", app.ID, to, from.AddDate(0, 0, -90)).
+		Order("performed_at, id").Find(&events)
+	return Compute(events, from, to)
 }

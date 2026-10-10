@@ -1,6 +1,7 @@
 package workers
 
 import (
+	"autosleep/alerts"
 	"autosleep/herokuclient"
 	"autosleep/metrics"
 	"autosleep/models"
@@ -132,6 +133,10 @@ func NewPool(pool *redis.Pool, concurrency uint) *work.WorkerPool {
 	wp.JobWithOptions(SleepCheckJob, work.JobOptions{MaxFails: 3}, (*Context).SleepChecker)
 	wp.JobWithOptions(ReconcileJob, work.JobOptions{MaxFails: 1}, (*Context).Reconcile)
 	wp.PeriodicallyEnqueue(ReconcileSpec, ReconcileJob)
+	if digestEnabled() {
+		wp.JobWithOptions(DigestJob, work.JobOptions{MaxFails: 1}, (*Context).Digest)
+		wp.PeriodicallyEnqueue(DigestSpec, DigestJob)
+	}
 	return wp
 }
 
@@ -152,6 +157,7 @@ func forgetIfDeleted(ctx context.Context, db *gorm.DB, app *models.Application) 
 	_, err = herokuclient.New(token).ListFormations(ctx, app.HerokuAppName)
 	if herokuclient.IsNotFound(err) {
 		log.Printf("reconcile: %s no longer exists on Heroku, forgetting it", app.HerokuAppName)
+		alerts.AppForgotten(app.HerokuAppName)
 		sleeper.Forget(db, app)
 	}
 }
